@@ -2,9 +2,21 @@
 
 Asset Portfolio Ops is a cloud-first full-stack demo platform for managing investment assets, customer portfolios, purchase requests, inventory data and audit events.
 
-The project demonstrates a modern full-stack architecture using .NET, React, TypeScript, SQL persistence, Azure Cosmos DB-ready event storage, automated tests and CI/CD pipeline structure.
+The project demonstrates a modern full-stack architecture using .NET, React, TypeScript, SQL persistence, an Azure Cosmos DB-ready audit event store, automated tests and cloud deployment.
 
 The current sample domain uses fine wine as the primary asset type, but the model is intentionally generic and can support other collectible or investment assets.
+
+## Live demo
+
+Frontend:
+
+https://lemon-coast-018ec2603.7.azurestaticapps.net
+
+Backend health check:
+
+https://api-asset-portfolio-ops-dqbeesavemezebhs.denmarkeast-01.azurewebsites.net/health
+
+The frontend is deployed to Azure Static Web Apps Free, and the backend API is deployed to Azure App Service Free F1. The project is intentionally configured as a low-cost portfolio demo.
 
 ## Dashboard preview
 
@@ -20,6 +32,7 @@ The goal of this project is to demonstrate how a business-oriented full-stack pl
 * Frontend dashboard UI
 * Automated testing
 * CI/CD infrastructure
+* Cloud-ready configuration
 
 The project is intentionally built as a public portfolio project. It is not tied to one specific company, but it demonstrates patterns that are relevant for modern business systems, trading workflows, internal tools, inventory integrations and cloud-first software development.
 
@@ -31,7 +44,7 @@ The project is intentionally built as a public portfolio project. It is not tied
 * ASP.NET Core Web API
 * C#
 * Entity Framework Core
-* SQLite for local SQL persistence
+* SQLite for local/demo SQL persistence
 * Azure Cosmos DB-ready audit event store
 * Swagger/OpenAPI
 * xUnit tests
@@ -44,12 +57,14 @@ The project is intentionally built as a public portfolio project. It is not tied
 * CSS
 * TypeScript API client abstraction
 
-### Infrastructure
+### Cloud and DevOps
 
-* Azure DevOps pipeline YAML
+* Azure Static Web Apps
+* Azure App Service
+* GitHub Actions
+* Azure DevOps pipeline YAML example
 * Monorepo structure
 * Git-based workflow
-* Cloud-ready configuration
 
 ## Repository structure
 
@@ -67,6 +82,10 @@ asset-portfolio-ops/
 ├── infra/
 │   └── azure/
 │       └── azure-pipelines.yml
+├── .github/
+│   └── workflows/
+│       ├── api-app-service.yml
+│       └── azure-static-web-apps-lemon-coast-018ec2603.yml
 └── README.md
 ```
 
@@ -122,20 +141,20 @@ Examples:
 * A purchase request belongs to a customer and an asset
 * Inventory items belong to assets
 
-For local development, the project uses SQLite through Entity Framework Core.
+For local development and demo hosting, the project uses SQLite through Entity Framework Core.
 
 The database is created automatically when the API starts.
 
-## Azure Cosmos DB event store
+## Azure Cosmos DB-ready event store
 
 Audit events are handled through an `IAuditEventStore` abstraction.
 
 The project contains two implementations:
 
-* `InMemoryAuditEventStore` for local development
+* `InMemoryAuditEventStore` for local/demo development
 * `CosmosAuditEventStore` for Azure Cosmos DB
 
-Cosmos DB is disabled by default in local development, but the implementation is included and can be enabled through configuration.
+Cosmos DB is disabled by default, but the implementation is included and can be enabled through configuration.
 
 This keeps the project easy to run locally while still demonstrating a cloud-first NoSQL event storage design.
 
@@ -186,6 +205,46 @@ In-memory event store locally or Cosmos DB when enabled
 
 This demonstrates a realistic internal operations flow where frontend actions are persisted and audited.
 
+## Cloud deployment
+
+The project is deployed as a low-cost Azure demo.
+
+### Frontend
+
+The frontend is deployed to Azure Static Web Apps Free:
+
+```text
+https://lemon-coast-018ec2603.7.azurestaticapps.net
+```
+
+The Static Web App is deployed through GitHub Actions.
+
+### Backend
+
+The backend API is deployed to Azure App Service Free F1:
+
+```text
+https://api-asset-portfolio-ops-dqbeesavemezebhs.denmarkeast-01.azurewebsites.net
+```
+
+Health check endpoint:
+
+```text
+https://api-asset-portfolio-ops-dqbeesavemezebhs.denmarkeast-01.azurewebsites.net/health
+```
+
+### Current cloud setup
+
+The deployed demo currently uses:
+
+* Azure Static Web Apps for the frontend
+* Azure App Service for the backend API
+* SQLite/demo persistence
+* In-memory audit event store
+* Cosmos DB integration disabled by default
+
+This keeps the project cheap to run while still demonstrating cloud-ready architecture.
+
 ## Local development
 
 ### Prerequisites
@@ -202,13 +261,13 @@ From the repository root:
 dotnet run --project apps/api
 ```
 
-The API runs on:
+The API runs locally on:
 
 ```text
 http://localhost:5107
 ```
 
-Swagger is available at:
+Swagger is available locally at:
 
 ```text
 http://localhost:5107/swagger
@@ -224,13 +283,13 @@ npm install
 npm run dev
 ```
 
-The frontend runs on:
+The frontend runs locally on:
 
 ```text
 http://localhost:5173
 ```
 
-### Frontend environment variable
+## Frontend environment variables
 
 The frontend uses this environment variable:
 
@@ -238,11 +297,19 @@ The frontend uses this environment variable:
 VITE_API_BASE_URL=http://localhost:5107
 ```
 
-An example file is included here:
+Example local environment file:
 
 ```text
 apps/web/.env.example
 ```
+
+Production environment file:
+
+```text
+apps/web/.env.production
+```
+
+The production file points the deployed frontend to the deployed Azure App Service API.
 
 ## Build and test
 
@@ -264,7 +331,37 @@ npm run build
 
 ## CI/CD
 
-The repository includes an Azure DevOps pipeline in:
+The project contains both GitHub Actions workflows and an Azure DevOps pipeline example.
+
+### GitHub Actions
+
+The deployed demo uses GitHub Actions.
+
+Frontend deployment workflow:
+
+```text
+.github/workflows/azure-static-web-apps-lemon-coast-018ec2603.yml
+```
+
+Backend deployment workflow:
+
+```text
+.github/workflows/api-app-service.yml
+```
+
+The frontend workflow deploys the React application to Azure Static Web Apps.
+
+The backend workflow:
+
+* Restores .NET dependencies
+* Builds the solution
+* Runs tests
+* Publishes the API
+* Deploys the API to Azure App Service
+
+### Azure DevOps pipeline example
+
+The repository also includes an Azure DevOps pipeline YAML file:
 
 ```text
 infra/azure/azure-pipelines.yml
@@ -280,11 +377,11 @@ The pipeline is designed to:
 * Install frontend dependencies
 * Build frontend
 
-The pipeline runs on changes to `main` and pull requests targeting `main`.
+This is included to demonstrate Azure DevOps CI/CD structure.
 
 ## Configuration
 
-Cosmos DB is disabled by default in local development:
+Cosmos DB is disabled by default:
 
 ```json
 "CosmosDb": {
@@ -298,7 +395,7 @@ Cosmos DB is disabled by default in local development:
 
 When enabled, the API uses the Cosmos DB implementation of `IAuditEventStore`.
 
-The local setup uses the in-memory implementation so the project can be cloned and run without an Azure account.
+The local and demo setup can run without an Azure Cosmos DB account.
 
 ## What this project demonstrates
 
@@ -307,13 +404,16 @@ This project demonstrates:
 * Full-stack development with .NET and React
 * API design
 * SQL persistence with Entity Framework Core
-* NoSQL/event storage with Azure Cosmos DB
+* NoSQL/event storage design with Azure Cosmos DB
 * Clean separation between domain logic and infrastructure
 * Testable service design
 * TypeScript API client patterns
 * Local-first development
 * Cloud-ready configuration
-* CI/CD pipeline structure
+* GitHub Actions deployment
+* Azure App Service deployment
+* Azure Static Web Apps deployment
+* Azure DevOps pipeline structure
 * Monorepo organization
 * Business-oriented dashboard design
 
@@ -328,8 +428,9 @@ This project is designed to demonstrate experience with technologies and practic
 | SQL                    | Entity Framework Core with SQLite locally                             |
 | NoSQL                  | Azure Cosmos DB-ready audit event store                               |
 | API design             | REST endpoints for assets, portfolio, inventory and purchase requests |
-| Cloud-first design     | Configuration-driven Cosmos DB integration                            |
-| CI/CD                  | Azure DevOps pipeline YAML                                            |
+| Cloud-first design     | Configuration-driven cloud deployment                                 |
+| Azure                  | Static Web Apps and App Service deployment                            |
+| CI/CD                  | GitHub Actions and Azure DevOps YAML                                  |
 | Testing                | xUnit backend tests                                                   |
 | Monorepo               | API, frontend, tests, docs and infrastructure in one repository       |
 | Documentation          | Architecture documentation and README                                 |
@@ -353,10 +454,31 @@ The backend depends on `IAuditEventStore` instead of directly depending on Cosmo
 
 The project can run locally without Azure dependencies. This makes it easier for others to clone, review and run the project.
 
+### Low-cost cloud demo
+
+The deployed version uses Azure free-tier-friendly services where possible. This makes it suitable as a public portfolio project without requiring a production-scale cloud setup.
+
+## Limitations
+
+This is a portfolio demo, not a production SaaS system.
+
+Current limitations include:
+
+* No authentication or authorization
+* SQLite/demo persistence instead of a production SQL database
+* Cosmos DB integration is included but disabled by default
+* No frontend test suite yet
+* No role-based access control
+* Limited validation and error handling
+* No real external market pricing integration
+* No production observability setup
+
 ## Future improvements
 
 Potential next steps:
 
+* Azure SQL Database integration
+* Enable Azure Cosmos DB Free Tier for real audit event storage
 * Azure Bicep infrastructure
 * Azure Function worker for integration events
 * Cosmos DB Change Feed
