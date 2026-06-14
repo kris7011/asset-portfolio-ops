@@ -24,12 +24,15 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.Configure<CosmosDbOptions>(
     builder.Configuration.GetSection("CosmosDb"));
 
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? ["http://localhost:5173"];
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("LocalFrontend", policy =>
+    options.AddPolicy("ConfiguredFrontend", policy =>
     {
-        policy
-            .WithOrigins("http://localhost:5173")
+        policy.WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -91,7 +94,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("LocalFrontend");
+app.UseCors("ConfiguredFrontend");
 
 app.MapGet("/health", () =>
 {
