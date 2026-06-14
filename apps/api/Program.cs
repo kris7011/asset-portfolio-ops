@@ -4,7 +4,9 @@ using AssetPortfolioOps.Api.Features.AuditEvents;
 using AssetPortfolioOps.Api.Features.Inventory;
 using AssetPortfolioOps.Api.Features.Portfolios;
 using AssetPortfolioOps.Api.Features.PurchaseRequests;
+using Microsoft.Azure.Cosmos;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +20,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
     options.UseSqlite(connectionString);
 });
+
+builder.Services.Configure<CosmosDbOptions>(
+    builder.Configuration.GetSection("CosmosDb"));
 
 builder.Services.AddCors(options =>
 {
@@ -34,7 +39,42 @@ builder.Services.AddScoped<IAssetService, AssetService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IPortfolioService, PortfolioService>();
 builder.Services.AddScoped<IPurchaseRequestService, PurchaseRequestService>();
-builder.Services.AddSingleton<IAuditEventStore, InMemoryAuditEventStore>();
+
+var cosmosDbEnabled = builder.Configuration.GetValue<bool>("CosmosDb:Enabled");
+
+if (cosmosDbEnabled)
+{
+    builder.Services.AddSingleton(serviceProvider =>
+    {
+        var cosmosOptions = serviceProvider
+            .GetRequiredService<IOptions<CosmosDbOptions>>()
+            .Value;
+
+        if (string.IsNullOrWhiteSpace(cosmosOptions.Endpoint))
+        {
+            throw new InvalidOperationException("CosmosDb:Endpoint is required when CosmosDb:Enabled is true.");
+        }
+
+        if (string.IsNullOrWhiteSpace(cosmosOptions.Key))
+        {
+            throw new InvalidOperationException("CosmosDb:Key is required when CosmosDb:Enabled is true.");
+        }
+
+        return new CosmosClient(
+            cosmosOptions.Endpoint,
+            cosmosOptions.Key,
+            new CosmosClientOptions
+            {
+                ApplicationName = "AssetPortfolioOps.Api"
+            });
+    });
+
+    builder.Services.AddSingleton<IAuditEventStore, CosmosAuditEventStore>();
+}
+else
+{
+    builder.Services.AddSingleton<IAuditEventStore, InMemoryAuditEventStore>();
+}
 
 var app = builder.Build();
 
@@ -58,7 +98,8 @@ app.MapGet("/health", () =>
     return Results.Ok(new
     {
         status = "Healthy",
-        application = "AssetPortfolioOps.Api"
+        application = "AssetPortfolioOps.Api",
+        cosmosDbEnabled
     });
 });
 
