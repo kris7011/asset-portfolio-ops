@@ -33,8 +33,8 @@ jobs:
         id: idtoken
         with:
           script: |
-            const core = require('@actions/core')
-            return await core.getIDToken()
+            const actionsCore = require('@actions/core')
+            return await actionsCore.getIDToken()
           result-encoding: string
 
       - name: Build and deploy frontend
@@ -68,8 +68,8 @@ jobs:
         id: idtoken
         with:
           script: |
-            const core = require('@actions/core')
-            return await core.getIDToken()
+            const actionsCore = require('@actions/core')
+            return await actionsCore.getIDToken()
           result-encoding: string
 
       - name: Close pull request preview
