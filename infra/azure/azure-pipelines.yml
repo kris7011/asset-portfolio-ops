@@ -1,0 +1,72 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  buildConfiguration: Release
+  dotnetSdkVersion: 10.0.x
+  nodeVersion: 24.x
+  apiProject: apps/api/AssetPortfolioOps.Api.csproj
+  testProject: tests/AssetPortfolioOps.Api.Tests/AssetPortfolioOps.Api.Tests.csproj
+  webWorkingDirectory: apps/web
+
+stages:
+  - stage: BuildAndTest
+    displayName: Build and test
+    jobs:
+      - job: BackendAndFrontend
+        displayName: Build backend and frontend
+        steps:
+          - checkout: self
+
+          - task: UseDotNet@2
+            displayName: Install .NET SDK
+            inputs:
+              packageType: sdk
+              version: $(dotnetSdkVersion)
+
+          - task: NodeTool@0
+            displayName: Install Node.js
+            inputs:
+              versionSpec: $(nodeVersion)
+
+          - task: DotNetCoreCLI@2
+            displayName: Restore backend
+            inputs:
+              command: restore
+              projects: |
+                $(apiProject)
+                $(testProject)
+
+          - task: DotNetCoreCLI@2
+            displayName: Build backend
+            inputs:
+              command: build
+              projects: |
+                $(apiProject)
+                $(testProject)
+              arguments: --configuration $(buildConfiguration) --no-restore
+
+          - task: DotNetCoreCLI@2
+            displayName: Test backend
+            inputs:
+              command: test
+              projects: $(testProject)
+              arguments: --configuration $(buildConfiguration) --no-build
+
+          - script: npm ci
+            displayName: Install frontend dependencies
+            workingDirectory: $(webWorkingDirectory)
+
+          - script: npm run build
+            displayName: Build frontend
+            workingDirectory: $(webWorkingDirectory)
