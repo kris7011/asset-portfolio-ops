@@ -1,42 +1,54 @@
 using AssetPortfolioOps.Api.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace AssetPortfolioOps.Api.Features.Portfolios;
 
-public sealed class PortfolioService(InMemoryDataStore store) : IPortfolioService
+public sealed class PortfolioService(AppDbContext dbContext) : IPortfolioService
 {
     public PortfolioResponse? GetPortfolio(Guid customerId)
     {
-        var customer = store.Customers.FirstOrDefault(customer => customer.Id == customerId);
+        var customer = dbContext.Customers
+            .AsNoTracking()
+            .FirstOrDefault(customer => customer.Id == customerId);
 
         if (customer is null)
         {
             return null;
         }
 
-        var items = store.Holdings
+        var holdingsWithAssets = dbContext.Holdings
+            .AsNoTracking()
             .Where(holding => holding.CustomerId == customerId)
             .Join(
-                store.Assets,
+                dbContext.Assets.AsNoTracking(),
                 holding => holding.AssetId,
                 asset => asset.Id,
-                (holding, asset) =>
+                (holding, asset) => new
                 {
-                    var totalMarketValue = holding.Quantity * asset.MarketPrice;
-                    var totalPurchaseValue = holding.Quantity * holding.AveragePurchasePrice;
-
-                    return new PortfolioItemResponse
-                    {
-                        AssetId = asset.Id,
-                        AssetName = asset.Name,
-                        Region = asset.Region,
-                        VintageYear = asset.VintageYear,
-                        Quantity = holding.Quantity,
-                        AveragePurchasePrice = holding.AveragePurchasePrice,
-                        MarketPrice = asset.MarketPrice,
-                        TotalMarketValue = totalMarketValue,
-                        GainLoss = totalMarketValue - totalPurchaseValue
-                    };
+                    Holding = holding,
+                    Asset = asset
                 })
+            .ToList();
+
+        var items = holdingsWithAssets
+            .Select(item =>
+            {
+                var totalMarketValue = item.Holding.Quantity * item.Asset.MarketPrice;
+                var totalPurchaseValue = item.Holding.Quantity * item.Holding.AveragePurchasePrice;
+
+                return new PortfolioItemResponse
+                {
+                    AssetId = item.Asset.Id,
+                    AssetName = item.Asset.Name,
+                    Region = item.Asset.Region,
+                    VintageYear = item.Asset.VintageYear,
+                    Quantity = item.Holding.Quantity,
+                    AveragePurchasePrice = item.Holding.AveragePurchasePrice,
+                    MarketPrice = item.Asset.MarketPrice,
+                    TotalMarketValue = totalMarketValue,
+                    GainLoss = totalMarketValue - totalPurchaseValue
+                };
+            })
             .OrderByDescending(item => item.TotalMarketValue)
             .ToList();
 

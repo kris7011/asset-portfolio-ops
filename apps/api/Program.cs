@@ -4,11 +4,20 @@ using AssetPortfolioOps.Api.Features.AuditEvents;
 using AssetPortfolioOps.Api.Features.Inventory;
 using AssetPortfolioOps.Api.Features.Portfolios;
 using AssetPortfolioOps.Api.Features.PurchaseRequests;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? "Data Source=asset-portfolio-ops.db";
+
+    options.UseSqlite(connectionString);
+});
 
 builder.Services.AddCors(options =>
 {
@@ -21,14 +30,19 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddSingleton<InMemoryDataStore>();
-builder.Services.AddSingleton<IAssetService, AssetService>();
-builder.Services.AddSingleton<IInventoryService, InventoryService>();
-builder.Services.AddSingleton<IPortfolioService, PortfolioService>();
-builder.Services.AddSingleton<IPurchaseRequestService, PurchaseRequestService>();
+builder.Services.AddScoped<IAssetService, AssetService>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<IPortfolioService, PortfolioService>();
+builder.Services.AddScoped<IPurchaseRequestService, PurchaseRequestService>();
 builder.Services.AddSingleton<IAuditEventStore, InMemoryAuditEventStore>();
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    dbContext.Database.EnsureCreated();
+}
 
 if (app.Environment.IsDevelopment())
 {

@@ -1,13 +1,15 @@
 using AssetPortfolioOps.Api.Data;
 using AssetPortfolioOps.Api.Domain;
+using Microsoft.EntityFrameworkCore;
 
 namespace AssetPortfolioOps.Api.Features.Inventory;
 
-public sealed class InventoryService(InMemoryDataStore store) : IInventoryService
+public sealed class InventoryService(AppDbContext dbContext) : IInventoryService
 {
     public IReadOnlyCollection<InventoryItem> GetAll()
     {
-        return store.InventoryItems
+        return dbContext.InventoryItems
+            .AsNoTracking()
             .OrderBy(item => item.WarehouseLocation)
             .ToList();
     }

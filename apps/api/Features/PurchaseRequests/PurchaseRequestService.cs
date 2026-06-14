@@ -1,16 +1,18 @@
 using AssetPortfolioOps.Api.Data;
 using AssetPortfolioOps.Api.Domain;
 using AssetPortfolioOps.Api.Features.AuditEvents;
+using Microsoft.EntityFrameworkCore;
 
 namespace AssetPortfolioOps.Api.Features.PurchaseRequests;
 
 public sealed class PurchaseRequestService(
-    InMemoryDataStore store,
+    AppDbContext dbContext,
     IAuditEventStore auditEventStore) : IPurchaseRequestService
 {
     public IReadOnlyCollection<PurchaseRequest> GetAll()
     {
-        return store.PurchaseRequests
+        return dbContext.PurchaseRequests
+            .AsNoTracking()
             .OrderByDescending(request => request.CreatedUtc)
             .ToList();
     }
@@ -31,7 +33,8 @@ public sealed class PurchaseRequestService(
             CreatedUtc = DateTime.UtcNow
         };
 
-        store.PurchaseRequests.Add(purchaseRequest);
+        dbContext.PurchaseRequests.Add(purchaseRequest);
+        await dbContext.SaveChangesAsync();
 
         await auditEventStore.AddAsync(new AuditEvent
         {
@@ -79,12 +82,12 @@ public sealed class PurchaseRequestService(
             throw new InvalidOperationException("RequestedBy is required.");
         }
 
-        if (store.Customers.All(customer => customer.Id != request.CustomerId))
+        if (!dbContext.Customers.Any(customer => customer.Id == request.CustomerId))
         {
             throw new InvalidOperationException("Customer was not found.");
         }
 
-        if (store.Assets.All(asset => asset.Id != request.AssetId))
+        if (!dbContext.Assets.Any(asset => asset.Id == request.AssetId))
         {
             throw new InvalidOperationException("Asset was not found.");
         }

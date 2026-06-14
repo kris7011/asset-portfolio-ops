@@ -97,7 +97,7 @@ public static class SeedData
             AssetId = BordeauxAssetId,
             QuantityAvailable = 18,
             WarehouseLocation = "AAL-WH-01",
-            LastUpdatedUtc = DateTime.UtcNow
+            LastUpdatedUtc = new DateTime(2026, 6, 14, 8, 0, 0, DateTimeKind.Utc)
         },
         new()
         {
@@ -105,7 +105,7 @@ public static class SeedData
             AssetId = BurgundyAssetId,
             QuantityAvailable = 9,
             WarehouseLocation = "AAL-WH-01",
-            LastUpdatedUtc = DateTime.UtcNow
+            LastUpdatedUtc = new DateTime(2026, 6, 14, 8, 0, 0, DateTimeKind.Utc)
         },
         new()
         {
@@ -113,7 +113,7 @@ public static class SeedData
             AssetId = ChampagneAssetId,
             QuantityAvailable = 30,
             WarehouseLocation = "AAL-WH-02",
-            LastUpdatedUtc = DateTime.UtcNow
+            LastUpdatedUtc = new DateTime(2026, 6, 14, 8, 0, 0, DateTimeKind.Utc)
         }
     };
 }
