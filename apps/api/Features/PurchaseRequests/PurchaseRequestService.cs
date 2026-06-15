@@ -9,17 +9,49 @@ public sealed class PurchaseRequestService(
     AppDbContext dbContext,
     IAuditEventStore auditEventStore) : IPurchaseRequestService
 {
-    public IReadOnlyCollection<PurchaseRequest> GetAll()
+    public async Task<IReadOnlyList<PurchaseRequest>> GetAllAsync(
+        CancellationToken cancellationToken = default)
     {
-        return dbContext.PurchaseRequests
+        return await dbContext.PurchaseRequests
             .AsNoTracking()
             .OrderByDescending(request => request.CreatedUtc)
-            .ToList();
+            .ToListAsync(cancellationToken);
     }
 
-    public async Task<PurchaseRequest> CreateAsync(CreatePurchaseRequestRequest request)
+    public async Task<PurchaseRequest> CreateAsync(
+        CreatePurchaseRequestRequest request,
+        CancellationToken cancellationToken = default)
     {
-        Validate(request);
+        if (request.Quantity <= 0)
+        {
+            throw new ArgumentException("Quantity must be greater than zero.");
+        }
+
+        if (request.RequestedPrice <= 0)
+        {
+            throw new ArgumentException("Requested price must be greater than zero.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.RequestedBy))
+        {
+            throw new ArgumentException("Requested by is required.");
+        }
+
+        var customerExists = await dbContext.Customers
+            .AnyAsync(customer => customer.Id == request.CustomerId, cancellationToken);
+
+        if (!customerExists)
+        {
+            throw new ArgumentException("Customer does not exist.");
+        }
+
+        var assetExists = await dbContext.Assets
+            .AnyAsync(asset => asset.Id == request.AssetId, cancellationToken);
+
+        if (!assetExists)
+        {
+            throw new ArgumentException("Asset does not exist.");
+        }
 
         var purchaseRequest = new PurchaseRequest
         {
@@ -28,20 +60,20 @@ public sealed class PurchaseRequestService(
             AssetId = request.AssetId,
             Quantity = request.Quantity,
             RequestedPrice = request.RequestedPrice,
+            RequestedBy = request.RequestedBy,
             Status = PurchaseRequestStatus.Pending,
-            RequestedBy = request.RequestedBy.Trim(),
             CreatedUtc = DateTime.UtcNow
         };
 
         dbContext.PurchaseRequests.Add(purchaseRequest);
-        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         await auditEventStore.AddAsync(new AuditEvent
         {
             EntityId = purchaseRequest.Id.ToString(),
             EntityType = nameof(PurchaseRequest),
             Action = "Created",
-            PerformedBy = purchaseRequest.RequestedBy,
+            PerformedBy = request.RequestedBy,
             TimestampUtc = DateTime.UtcNow,
             Metadata = new Dictionary<string, string>
             {
@@ -55,41 +87,103 @@ public sealed class PurchaseRequestService(
         return purchaseRequest;
     }
 
-    private void Validate(CreatePurchaseRequestRequest request)
+    public Task<PurchaseRequest> ApproveAsync(
+        Guid id,
+        string performedBy,
+        CancellationToken cancellationToken = default)
     {
-        if (request.CustomerId == Guid.Empty)
+        return ChangeStatusAsync(
+            id,
+            PurchaseRequestStatus.Approved,
+            performedBy,
+            cancellationToken);
+    }
+
+    public Task<PurchaseRequest> RejectAsync(
+        Guid id,
+        string performedBy,
+        CancellationToken cancellationToken = default)
+    {
+        return ChangeStatusAsync(
+            id,
+            PurchaseRequestStatus.Rejected,
+            performedBy,
+            cancellationToken);
+    }
+
+    public Task<PurchaseRequest> CompleteAsync(
+        Guid id,
+        string performedBy,
+        CancellationToken cancellationToken = default)
+    {
+        return ChangeStatusAsync(
+            id,
+            PurchaseRequestStatus.Completed,
+            performedBy,
+            cancellationToken);
+    }
+
+    private async Task<PurchaseRequest> ChangeStatusAsync(
+        Guid id,
+        PurchaseRequestStatus newStatus,
+        string performedBy,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(performedBy))
         {
-            throw new InvalidOperationException("CustomerId is required.");
+            throw new ArgumentException("Performed by is required.");
         }
 
-        if (request.AssetId == Guid.Empty)
+        var purchaseRequest = await dbContext.PurchaseRequests
+            .FirstOrDefaultAsync(request => request.Id == id, cancellationToken);
+
+        if (purchaseRequest is null)
         {
-            throw new InvalidOperationException("AssetId is required.");
+            throw new KeyNotFoundException("Purchase request was not found.");
         }
 
-        if (request.Quantity <= 0)
-        {
-            throw new InvalidOperationException("Quantity must be greater than zero.");
-        }
+        ValidateStatusTransition(purchaseRequest.Status, newStatus);
 
-        if (request.RequestedPrice <= 0)
-        {
-            throw new InvalidOperationException("RequestedPrice must be greater than zero.");
-        }
+        var previousStatus = purchaseRequest.Status;
+        purchaseRequest.Status = newStatus;
 
-        if (string.IsNullOrWhiteSpace(request.RequestedBy))
-        {
-            throw new InvalidOperationException("RequestedBy is required.");
-        }
+        await dbContext.SaveChangesAsync(cancellationToken);
 
-        if (!dbContext.Customers.Any(customer => customer.Id == request.CustomerId))
+        await auditEventStore.AddAsync(new AuditEvent
         {
-            throw new InvalidOperationException("Customer was not found.");
-        }
+            EntityId = purchaseRequest.Id.ToString(),
+            EntityType = nameof(PurchaseRequest),
+            Action = newStatus.ToString(),
+            PerformedBy = performedBy,
+            TimestampUtc = DateTime.UtcNow,
+            Metadata = new Dictionary<string, string>
+            {
+                ["previousStatus"] = previousStatus.ToString(),
+                ["newStatus"] = newStatus.ToString()
+            }
+        });
 
-        if (!dbContext.Assets.Any(asset => asset.Id == request.AssetId))
+        return purchaseRequest;
+    }
+
+    private static void ValidateStatusTransition(
+        PurchaseRequestStatus currentStatus,
+        PurchaseRequestStatus newStatus)
+    {
+        var isValidTransition =
+            currentStatus == PurchaseRequestStatus.Pending &&
+            (newStatus == PurchaseRequestStatus.Approved ||
+             newStatus == PurchaseRequestStatus.Rejected);
+
+        isValidTransition =
+            isValidTransition ||
+            currentStatus == PurchaseRequestStatus.Approved &&
+            newStatus == PurchaseRequestStatus.Completed;
+
+        if (!isValidTransition)
         {
-            throw new InvalidOperationException("Asset was not found.");
+            throw new InvalidOperationException(
+                $"Cannot change purchase request status from {currentStatus} to {newStatus}.");
         }
     }
 }

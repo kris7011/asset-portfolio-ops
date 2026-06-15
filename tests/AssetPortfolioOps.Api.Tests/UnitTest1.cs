@@ -102,7 +102,125 @@ public sealed class PurchaseRequestServiceTests
             RequestedBy = "Kris"
         };
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(request));
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(request));
+    }
+
+    [Fact]
+    public async Task ApproveAsync_ChangesStatusToApproved()
+    {
+        await using var dbContext = TestDbContextFactory.Create();
+        var auditEventStore = new InMemoryAuditEventStore();
+        var service = new PurchaseRequestService(dbContext, auditEventStore);
+
+        var createdRequest = await service.CreateAsync(new CreatePurchaseRequestRequest
+        {
+            CustomerId = SeedData.CustomerEmmaId,
+            AssetId = SeedData.BordeauxAssetId,
+            Quantity = 2,
+            RequestedPrice = 12300m,
+            RequestedBy = "Kris"
+        });
+
+        var approvedRequest = await service.ApproveAsync(
+            createdRequest.Id,
+            "Katrine");
+
+        Assert.Equal(PurchaseRequestStatus.Approved, approvedRequest.Status);
+    }
+
+    [Fact]
+    public async Task RejectAsync_ChangesStatusToRejected()
+    {
+        await using var dbContext = TestDbContextFactory.Create();
+        var auditEventStore = new InMemoryAuditEventStore();
+        var service = new PurchaseRequestService(dbContext, auditEventStore);
+
+        var createdRequest = await service.CreateAsync(new CreatePurchaseRequestRequest
+        {
+            CustomerId = SeedData.CustomerEmmaId,
+            AssetId = SeedData.BordeauxAssetId,
+            Quantity = 2,
+            RequestedPrice = 12300m,
+            RequestedBy = "Kris"
+        });
+
+        var rejectedRequest = await service.RejectAsync(
+            createdRequest.Id,
+            "Katrine");
+
+        Assert.Equal(PurchaseRequestStatus.Rejected, rejectedRequest.Status);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_ChangesApprovedRequestToCompleted()
+    {
+        await using var dbContext = TestDbContextFactory.Create();
+        var auditEventStore = new InMemoryAuditEventStore();
+        var service = new PurchaseRequestService(dbContext, auditEventStore);
+
+        var createdRequest = await service.CreateAsync(new CreatePurchaseRequestRequest
+        {
+            CustomerId = SeedData.CustomerEmmaId,
+            AssetId = SeedData.BordeauxAssetId,
+            Quantity = 2,
+            RequestedPrice = 12300m,
+            RequestedBy = "Kris"
+        });
+
+        var approvedRequest = await service.ApproveAsync(
+            createdRequest.Id,
+            "Katrine");
+
+        var completedRequest = await service.CompleteAsync(
+            approvedRequest.Id,
+            "Katrine");
+
+        Assert.Equal(PurchaseRequestStatus.Completed, completedRequest.Status);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_Throws_WhenRequestIsPending()
+    {
+        await using var dbContext = TestDbContextFactory.Create();
+        var auditEventStore = new InMemoryAuditEventStore();
+        var service = new PurchaseRequestService(dbContext, auditEventStore);
+
+        var createdRequest = await service.CreateAsync(new CreatePurchaseRequestRequest
+        {
+            CustomerId = SeedData.CustomerEmmaId,
+            AssetId = SeedData.BordeauxAssetId,
+            Quantity = 2,
+            RequestedPrice = 12300m,
+            RequestedBy = "Kris"
+        });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.CompleteAsync(createdRequest.Id, "Katrine"));
+    }
+
+    [Fact]
+    public async Task ApproveAsync_WritesAuditEvent()
+    {
+        await using var dbContext = TestDbContextFactory.Create();
+        var auditEventStore = new InMemoryAuditEventStore();
+        var service = new PurchaseRequestService(dbContext, auditEventStore);
+
+        var createdRequest = await service.CreateAsync(new CreatePurchaseRequestRequest
+        {
+            CustomerId = SeedData.CustomerEmmaId,
+            AssetId = SeedData.BordeauxAssetId,
+            Quantity = 2,
+            RequestedPrice = 12300m,
+            RequestedBy = "Kris"
+        });
+
+        await service.ApproveAsync(createdRequest.Id, "Katrine");
+
+        var auditEvents = await auditEventStore.GetAllAsync();
+
+        Assert.Contains(auditEvents, auditEvent =>
+            auditEvent.EntityId == createdRequest.Id.ToString() &&
+            auditEvent.Action == PurchaseRequestStatus.Approved.ToString());
     }
 }
 

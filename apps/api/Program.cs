@@ -138,9 +138,13 @@ api.MapGet("/inventory", (IInventoryService inventoryService) =>
     return Results.Ok(inventoryService.GetAll());
 });
 
-api.MapGet("/purchase-requests", (IPurchaseRequestService purchaseRequestService) =>
+api.MapGet("/purchase-requests", async (
+    IPurchaseRequestService purchaseRequestService,
+    CancellationToken cancellationToken) =>
 {
-    return Results.Ok(purchaseRequestService.GetAll());
+    var purchaseRequests = await purchaseRequestService.GetAllAsync(cancellationToken);
+
+    return Results.Ok(purchaseRequests);
 });
 
 api.MapPost("/purchase-requests", async (
@@ -153,12 +157,87 @@ api.MapPost("/purchase-requests", async (
 
         return Results.Created($"/api/purchase-requests/{createdRequest.Id}", createdRequest);
     }
-    catch (InvalidOperationException exception)
+    catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
     {
         return Results.BadRequest(new
         {
             error = exception.Message
         });
+    }
+});
+
+app.MapPatch("/api/purchase-requests/{id:guid}/approve", async (
+    Guid id,
+    UpdatePurchaseRequestStatusRequest request,
+    IPurchaseRequestService purchaseRequestService,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var updatedRequest = await purchaseRequestService.ApproveAsync(
+            id,
+            request.PerformedBy,
+            cancellationToken);
+
+        return Results.Ok(updatedRequest);
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound();
+    }
+    catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+    {
+        return Results.BadRequest(new { error = exception.Message });
+    }
+});
+
+app.MapPatch("/api/purchase-requests/{id:guid}/reject", async (
+    Guid id,
+    UpdatePurchaseRequestStatusRequest request,
+    IPurchaseRequestService purchaseRequestService,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var updatedRequest = await purchaseRequestService.RejectAsync(
+            id,
+            request.PerformedBy,
+            cancellationToken);
+
+        return Results.Ok(updatedRequest);
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound();
+    }
+    catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+    {
+        return Results.BadRequest(new { error = exception.Message });
+    }
+});
+
+app.MapPatch("/api/purchase-requests/{id:guid}/complete", async (
+    Guid id,
+    UpdatePurchaseRequestStatusRequest request,
+    IPurchaseRequestService purchaseRequestService,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var updatedRequest = await purchaseRequestService.CompleteAsync(
+            id,
+            request.PerformedBy,
+            cancellationToken);
+
+        return Results.Ok(updatedRequest);
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound();
+    }
+    catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+    {
+        return Results.BadRequest(new { error = exception.Message });
     }
 });
 
