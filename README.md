@@ -20,34 +20,34 @@ The frontend is deployed to Azure Static Web Apps Free, and the backend API is d
 
 ## Dashboard preview
 
-![Asset Portfolio Ops dashboard](docs/images/dashboard.png)
+![Dashboard preview](docs/images/dashboard.png)
 
 ## Purpose
 
-The goal of this project is to demonstrate how a business-oriented full-stack platform can be built with a clear separation between:
+The purpose of this project is to demonstrate how a full-stack application can support an operational investment workflow.
 
-* Relational business data
-* Event and audit data
-* Backend API logic
-* Frontend dashboard UI
-* Automated testing
-* CI/CD infrastructure
-* Cloud-ready configuration
+The application shows how a business can manage:
 
-The project is intentionally built as a public portfolio project. It is not tied to one specific company, but it demonstrates patterns that are relevant for modern business systems, trading workflows, internal tools, inventory integrations and cloud-first software development.
+* Investment assets
+* Customer portfolio value
+* Inventory levels
+* Purchase requests
+* Purchase request status transitions
+* Audit events for operational decisions
+
+The project is designed as a public portfolio project, showing practical software engineering skills in a realistic domain.
 
 ## Tech stack
 
 ### Backend
 
 * .NET 10
-* ASP.NET Core Web API
-* C#
+* ASP.NET Core Minimal API
 * Entity Framework Core
-* SQLite for local/demo SQL persistence
+* SQLite demo persistence
 * Azure Cosmos DB-ready audit event store
-* Swagger/OpenAPI
 * xUnit tests
+* Swagger/OpenAPI
 
 ### Frontend
 
@@ -55,118 +55,311 @@ The project is intentionally built as a public portfolio project. It is not tied
 * TypeScript
 * Vite
 * CSS
-* TypeScript API client abstraction
+* Environment-based API configuration
 
 ### Cloud and DevOps
 
 * Azure Static Web Apps
 * Azure App Service
 * GitHub Actions
-* Azure DevOps pipeline YAML example
-* Monorepo structure
-* Git-based workflow
+* Azure DevOps pipeline example
+* Cloud-first configuration
+* CI/CD build, test and deployment workflow
 
 ## Repository structure
 
 ```text
-asset-portfolio-ops/
-├── apps/
-│   ├── api/              # .NET 10 ASP.NET Core API
-│   └── web/              # React/TypeScript frontend
-├── tests/
-│   └── AssetPortfolioOps.Api.Tests/
-├── docs/
+asset-portfolio-ops
+├── apps
+│   ├── api
+│   │   ├── Data
+│   │   ├── Domain
+│   │   ├── Features
+│   │   │   ├── Assets
+│   │   │   ├── AuditEvents
+│   │   │   ├── Inventory
+│   │   │   ├── Portfolios
+│   │   │   └── PurchaseRequests
+│   │   ├── Program.cs
+│   │   └── AssetPortfolioOps.Api.csproj
+│   │
+│   └── web
+│       ├── src
+│       │   ├── App.tsx
+│       │   ├── App.css
+│       │   └── api.ts
+│       └── package.json
+│
+├── docs
 │   ├── architecture.md
-│   └── images/
+│   └── images
 │       └── dashboard.png
-├── infra/
-│   └── azure/
+│
+├── infra
+│   └── azure
 │       └── azure-pipelines.yml
-├── .github/
-│   └── workflows/
-│       ├── api-app-service.yml
-│       └── azure-static-web-apps-lemon-coast-018ec2603.yml
-└── README.md
+│
+├── tests
+│   └── AssetPortfolioOps.Api.Tests
+│
+├── .github
+│   └── workflows
+│
+├── README.md
+└── AssetPortfolioOps.sln
 ```
 
 ## Domain model
 
-The core domain consists of:
+The backend contains a small investment operations domain.
 
-* Customer
-* Asset
-* Holding
-* Portfolio
-* PurchaseRequest
-* InventoryItem
-* AuditEvent
+### Assets
 
-The demo data currently uses investment-grade wine assets such as Bordeaux, Burgundy and Champagne.
+Represents an investment asset such as fine wine, whiskey, art, watches or other collectible assets.
 
-The model is intentionally generic. A fine wine asset is just one example of a high-value investment asset. The same structure could be extended to other domains such as watches, art, whisky or similar collectible assets.
+Example asset data:
+
+* Bordeaux Premier Cru 2016
+* Burgundy Grand Cru 2019
+* Vintage Champagne 2012
+
+### Customers
+
+Represents customers with investment portfolios.
+
+### Holdings
+
+Represents the quantity of a specific asset owned by a customer, including average purchase price.
+
+### Inventory
+
+Represents available stock and warehouse location.
+
+### Purchase requests
+
+Represents a customer purchase request for a specific asset.
+
+A purchase request has a status workflow:
+
+```text
+Pending → Approved
+Pending → Rejected
+Approved → Completed
+```
+
+Invalid transitions are rejected by the backend.
+
+For example:
+
+```text
+Pending → Completed
+Rejected → Approved
+Completed → Rejected
+```
+
+are not allowed.
+
+### Audit events
+
+Represents important business actions such as:
+
+* Purchase request created
+* Purchase request approved
+* Purchase request rejected
+* Purchase request completed
+
+Audit events are stored behind an interface, so the application can use an in-memory store locally or a Cosmos DB implementation in cloud-ready scenarios.
 
 ## Backend features
 
-The API supports:
+The backend API supports:
 
-* Listing investment assets
-* Viewing customer portfolio value
-* Viewing inventory status
+* Reading assets
+* Reading inventory
+* Reading a customer portfolio
 * Creating purchase requests
-* Writing audit events
+* Approving purchase requests
+* Rejecting purchase requests
+* Completing purchase requests
+* Validating purchase request status transitions
+* Writing audit events for purchase request actions
 * Reading audit events
 * Health check endpoint
+* Swagger/OpenAPI in development
 
-Example endpoints:
+## API endpoints
 
-```text
-GET    /health
-GET    /api/assets
-GET    /api/assets/{id}
-GET    /api/customers/{customerId}/portfolio
-GET    /api/inventory
-GET    /api/purchase-requests
-POST   /api/purchase-requests
-GET    /api/audit-events
+### Health
+
+```http
+GET /health
 ```
+
+Returns basic application health information.
+
+### Assets
+
+```http
+GET /api/assets
+GET /api/assets/{id}
+```
+
+### Portfolio
+
+```http
+GET /api/customers/{customerId}/portfolio
+```
+
+Returns portfolio value, gain/loss and portfolio items for a customer.
+
+### Inventory
+
+```http
+GET /api/inventory
+```
+
+Returns available inventory units and warehouse location.
+
+### Purchase requests
+
+```http
+GET /api/purchase-requests
+POST /api/purchase-requests
+PATCH /api/purchase-requests/{id}/approve
+PATCH /api/purchase-requests/{id}/reject
+PATCH /api/purchase-requests/{id}/complete
+```
+
+### Audit events
+
+```http
+GET /api/audit-events
+```
+
+Returns audit events in newest-first order.
+
+## Purchase request workflow
+
+The project includes a small business workflow for purchase requests.
+
+A user can create a purchase request from the dashboard. The request starts as `Pending`.
+
+From there, the request can be:
+
+* Approved
+* Rejected
+
+An approved request can then be:
+
+* Completed
+
+Each status transition is validated in the backend and written as an audit event.
+
+This demonstrates:
+
+* Backend business rules
+* API design
+* State transition validation
+* Frontend workflow actions
+* Audit trail for business decisions
+* Automated tests for workflow rules
 
 ## SQL persistence
 
-The project uses SQL for structured business data where relationships matter.
+The project uses Entity Framework Core for relational data.
 
-Examples:
+The following entities are stored in the relational model:
 
-* A customer can have multiple holdings
-* A holding references an asset
-* A purchase request belongs to a customer and an asset
-* Inventory items belong to assets
+* Assets
+* Customers
+* Holdings
+* Inventory items
+* Purchase requests
 
-For local development and demo hosting, the project uses SQLite through Entity Framework Core.
+For the live demo, the API uses SQLite as a simple low-cost persistence option.
 
-The database is created automatically when the API starts.
+This is suitable for a portfolio demo, but not intended as a production database setup.
 
-## Azure Cosmos DB-ready event store
+In a production version, this would typically be moved to Azure SQL Database or another managed relational database.
 
-Audit events are handled through an `IAuditEventStore` abstraction.
+## Azure Cosmos DB-ready audit event store
 
-The project contains two implementations:
+The project includes an Azure Cosmos DB-ready implementation for audit events.
 
-* `InMemoryAuditEventStore` for local/demo development
-* `CosmosAuditEventStore` for Azure Cosmos DB
+The audit event store is hidden behind this interface:
 
-Cosmos DB is disabled by default, but the implementation is included and can be enabled through configuration.
+```csharp
+public interface IAuditEventStore
+{
+    Task AddAsync(AuditEvent auditEvent);
+    Task<IReadOnlyList<AuditEvent>> GetAllAsync();
+}
+```
 
-This keeps the project easy to run locally while still demonstrating a cloud-first NoSQL event storage design.
+This makes the audit event storage replaceable without changing the purchase request workflow.
+
+Current implementations:
+
+* `InMemoryAuditEventStore`
+* `CosmosAuditEventStore`
+
+Cosmos DB is currently disabled in the live demo to keep the project low-cost and simple to run.
+
+It can be enabled through configuration:
+
+```json
+{
+  "CosmosDb": {
+    "Enabled": true,
+    "Endpoint": "<cosmos-endpoint>",
+    "Key": "<cosmos-key>",
+    "DatabaseName": "asset-portfolio-ops",
+    "AuditEventsContainerName": "audit-events"
+  }
+}
+```
 
 ## Why SQL and NoSQL are both used
 
-SQL and NoSQL are used for different responsibilities.
+The project intentionally shows both relational and document-oriented thinking.
 
-SQL is used for relational business data where consistency, relationships and structured querying are important.
+### SQL is used for structured operational data
 
-Cosmos DB is used for audit/event data because events are append-only, flexible and well suited for document-based storage.
+SQL is a good fit for:
 
-This separation makes the architecture more realistic than forcing all data into one database type.
+* Customers
+* Assets
+* Holdings
+* Inventory
+* Purchase requests
+
+These entities have clear relationships and benefit from relational consistency.
+
+### Cosmos DB is used for flexible audit events
+
+Audit events are a good fit for document storage because they may contain different metadata depending on the action.
+
+For example, a created event may include:
+
+```json
+{
+  "customerId": "...",
+  "assetId": "...",
+  "quantity": "2",
+  "requestedPrice": "12300"
+}
+```
+
+A status transition event may include:
+
+```json
+{
+  "previousStatus": "Pending",
+  "newStatus": "Approved"
+}
+```
+
+This makes Cosmos DB a practical fit for event and audit data.
 
 ## Frontend dashboard
 
@@ -174,76 +367,77 @@ The React dashboard shows:
 
 * Portfolio value
 * Portfolio gain/loss
-* Asset count
+* Number of assets
 * Inventory units
 * Portfolio holdings
-* Inventory status
+* Inventory overview
 * Purchase requests
+* Purchase request status badges
+* Purchase request workflow actions
 * Audit events
 
-The frontend includes a small TypeScript API client, so the React components do not call `fetch` directly or hardcode endpoint logic.
+The dashboard can create demo purchase requests and move them through the supported workflow.
 
-The dashboard also includes a demo action for creating a purchase request. When the user creates a purchase request, the backend validates the request, stores it in SQL and writes an audit event.
+Supported frontend actions:
+
+* Create demo purchase request
+* Approve pending request
+* Reject pending request
+* Complete approved request
+
+After each action, the dashboard reloads the latest data from the backend API.
 
 ## Request flow
 
-A simplified request flow looks like this:
+A typical workflow looks like this:
 
 ```text
-React dashboard
-    ↓
-POST /api/purchase-requests
-    ↓
-PurchaseRequestService
-    ↓
-SQL persistence through Entity Framework Core
-    ↓
-IAuditEventStore
-    ↓
-In-memory event store locally or Cosmos DB when enabled
+User clicks "Create demo purchase request"
+        ↓
+React frontend sends POST request
+        ↓
+ASP.NET Core API validates input
+        ↓
+Purchase request is saved
+        ↓
+Audit event is written
+        ↓
+Dashboard reloads data
+        ↓
+User clicks Approve, Reject or Complete
+        ↓
+Backend validates status transition
+        ↓
+Status is updated
+        ↓
+Audit event is written
+        ↓
+Dashboard reloads with updated status
 ```
 
-This demonstrates a realistic internal operations flow where frontend actions are persisted and audited.
+## Automated tests
 
-## Cloud deployment
+The backend includes xUnit tests for important business logic.
 
-The project is deployed as a low-cost Azure demo.
+Current test coverage includes:
 
-### Frontend
+* Portfolio calculation
+* Missing customer portfolio handling
+* Purchase request creation
+* Purchase request validation
+* Audit event creation
+* Audit event ordering
+* Approving purchase requests
+* Rejecting purchase requests
+* Completing approved purchase requests
+* Rejecting invalid status transitions
+* Writing audit events during status changes
 
-The frontend is deployed to Azure Static Web Apps Free:
+Run tests:
 
-```text
-https://lemon-coast-018ec2603.7.azurestaticapps.net
+```powershell
+dotnet test --configuration Release
 ```
-
-The Static Web App is deployed through GitHub Actions.
-
-### Backend
-
-The backend API is deployed to Azure App Service Free F1:
-
-```text
-https://api-asset-portfolio-ops-dqbeesavemezebhs.denmarkeast-01.azurewebsites.net
-```
-
-Health check endpoint:
-
-```text
-https://api-asset-portfolio-ops-dqbeesavemezebhs.denmarkeast-01.azurewebsites.net/health
-```
-
-### Current cloud setup
-
-The deployed demo currently uses:
-
-* Azure Static Web Apps for the frontend
-* Azure App Service for the backend API
-* SQLite/demo persistence
-* In-memory audit event store
-* Cosmos DB integration disabled by default
-
-This keeps the project cheap to run while still demonstrating cloud-ready architecture.
 
 ## Local development
 
@@ -253,7 +447,7 @@ This keeps the project cheap to run while still demonstrating cloud-ready archit
 * Node.js
 * npm
 
-### Run backend
+### Run backend locally
 
 From the repository root:
 
@@ -261,21 +455,13 @@ From the repository root:
 dotnet run --project apps/api
 ```
 
-The API runs locally on:
+The API runs locally and exposes Swagger in development.
 
-```text
-http://localhost:5107
-```
+The frontend expects the API base URL to be configured through environment variables.
 
-Swagger is available locally at:
+### Run frontend locally
 
-```text
-http://localhost:5107/swagger
-```
-
-### Run frontend
-
-In a second terminal:
+From the repository root:
 
 ```powershell
 cd apps/web
@@ -283,46 +469,40 @@ npm install
 npm run dev
 ```
 
-The frontend runs locally on:
-
-```text
-http://localhost:5173
-```
-
-## Frontend environment variables
-
-The frontend uses this environment variable:
+Example local frontend environment file:
 
 ```env
 VITE_API_BASE_URL=http://localhost:5107
 ```
 
-Example local environment file:
+## Frontend environment variables
 
-```text
-apps/web/.env.example
+The frontend uses `VITE_API_BASE_URL` to decide which backend API to call.
+
+### Local example
+
+```env
+VITE_API_BASE_URL=http://localhost:5107
 ```
 
-Production environment file:
+### Production example
 
-```text
-apps/web/.env.production
+```env
+VITE_API_BASE_URL=https://api-asset-portfolio-ops-dqbeesavemezebhs.denmarkeast-01.azurewebsites.net
 ```
 
-The production file points the deployed frontend to the deployed Azure App Service API.
+This makes the same frontend code work both locally and in Azure.
 
 ## Build and test
-
-### Backend
 
 From the repository root:
 
 ```powershell
-dotnet build
-dotnet test
+dotnet build --configuration Release
+dotnet test --configuration Release --no-build
 ```
 
-### Frontend
+Build the frontend:
 
 ```powershell
 cd apps/web
@@ -331,162 +511,220 @@ npm run build
 
 ## CI/CD
 
-The project contains both GitHub Actions workflows and an Azure DevOps pipeline example.
+The project uses GitHub Actions for deployment.
 
-### GitHub Actions
+### Backend deployment
 
-The deployed demo uses GitHub Actions.
+The backend API is deployed to Azure App Service through GitHub Actions.
 
-Frontend deployment workflow:
-
-```text
-.github/workflows/azure-static-web-apps-lemon-coast-018ec2603.yml
-```
-
-Backend deployment workflow:
+Workflow:
 
 ```text
 .github/workflows/api-app-service.yml
 ```
 
-The frontend workflow deploys the React application to Azure Static Web Apps.
-
-The backend workflow:
+The workflow:
 
 * Restores .NET dependencies
-* Builds the solution
-* Runs tests
+* Builds the API
+* Runs backend tests
 * Publishes the API
-* Deploys the API to Azure App Service
+* Deploys to Azure App Service
+
+### Frontend deployment
+
+The frontend is deployed to Azure Static Web Apps through GitHub Actions.
+
+Workflow:
+
+```text
+.github/workflows/azure-static-web-apps-lemon-coast-018ec2603.yml
+```
+
+The workflow:
+
+* Builds the React frontend
+* Uses production API configuration
+* Deploys to Azure Static Web Apps
 
 ### Azure DevOps pipeline example
 
-The repository also includes an Azure DevOps pipeline YAML file:
+The repository also contains an Azure DevOps pipeline example:
 
 ```text
 infra/azure/azure-pipelines.yml
 ```
 
-The pipeline is designed to:
-
-* Install .NET SDK
-* Install Node.js
-* Restore backend dependencies
-* Build backend
-* Run backend tests
-* Install frontend dependencies
-* Build frontend
-
 This is included to demonstrate Azure DevOps CI/CD structure.
+
+The live demo currently uses GitHub Actions for deployment.
 
 ## Configuration
 
-Cosmos DB is disabled by default:
+Backend configuration is handled through standard ASP.NET Core configuration files and environment variables.
+
+Example development configuration:
 
 ```json
-"CosmosDb": {
-  "Enabled": false,
-  "Endpoint": "",
-  "Key": "",
-  "DatabaseName": "asset-portfolio-ops",
-  "AuditEventsContainerName": "audit-events"
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=asset-portfolio-ops.db"
+  },
+  "Cors": {
+    "AllowedOrigins": [
+      "http://localhost:5173"
+    ]
+  },
+  "CosmosDb": {
+    "Enabled": false,
+    "Endpoint": "",
+    "Key": "",
+    "DatabaseName": "asset-portfolio-ops",
+    "AuditEventsContainerName": "audit-events"
+  }
 }
 ```
 
-When enabled, the API uses the Cosmos DB implementation of `IAuditEventStore`.
-
-The local and demo setup can run without an Azure Cosmos DB account.
+Production CORS is configured to allow the Azure Static Web Apps frontend.
 
 ## What this project demonstrates
 
-This project demonstrates:
+This project demonstrates practical experience with:
 
-* Full-stack development with .NET and React
-* API design
-* SQL persistence with Entity Framework Core
-* NoSQL/event storage design with Azure Cosmos DB
-* Clean separation between domain logic and infrastructure
-* Testable service design
-* TypeScript API client patterns
-* Local-first development
-* Cloud-ready configuration
-* GitHub Actions deployment
+* C# and .NET backend development
+* ASP.NET Core Minimal API
+* REST API design
+* Entity Framework Core
+* SQL-based relational modeling
+* Business workflow implementation
+* Status transition validation
+* Audit event tracking
+* Azure Cosmos DB-ready architecture
+* React and TypeScript frontend development
+* Frontend API integration
+* Cloud-first configuration
+* GitHub Actions CI/CD
 * Azure App Service deployment
 * Azure Static Web Apps deployment
-* Azure DevOps pipeline structure
-* Monorepo organization
-* Business-oriented dashboard design
+* Automated backend tests
+* Clean separation between domain, data and feature logic
 
 ## How this maps to a modern software developer role
 
-This project is designed to demonstrate experience with technologies and practices commonly used in modern product teams:
+This project is relevant to roles involving:
 
-| Area                   | Demonstrated by                                                       |
-| ---------------------- | --------------------------------------------------------------------- |
-| .NET / C#              | ASP.NET Core API and service layer                                    |
-| React / TypeScript     | Frontend operations dashboard                                         |
-| SQL                    | Entity Framework Core with SQLite locally                             |
-| NoSQL                  | Azure Cosmos DB-ready audit event store                               |
-| API design             | REST endpoints for assets, portfolio, inventory and purchase requests |
-| Cloud-first design     | Configuration-driven cloud deployment                                 |
-| Azure                  | Static Web Apps and App Service deployment                            |
-| CI/CD                  | GitHub Actions and Azure DevOps YAML                                  |
-| Testing                | xUnit backend tests                                                   |
-| Monorepo               | API, frontend, tests, docs and infrastructure in one repository       |
-| Documentation          | Architecture documentation and README                                 |
-| Business understanding | Portfolio, inventory, purchase request and audit workflows            |
+* .NET backend development
+* Full-stack development
+* Cloud-first product development
+* API design
+* Azure deployment
+* CI/CD pipelines
+* Business-critical internal tools
+* Operational dashboards
+* Integration-heavy systems
+* Auditability and traceability
+
+It shows how a small product feature can be built end-to-end:
+
+```text
+Domain model
+    ↓
+Database persistence
+    ↓
+Business logic
+    ↓
+API endpoints
+    ↓
+Frontend integration
+    ↓
+Cloud deployment
+    ↓
+Automated tests
+```
 
 ## Design decisions
 
-### SQL for core business data
+### Minimal API
 
-The core business entities have clear relationships. For example, a purchase request belongs to a customer and an asset. This makes SQL a good fit.
+The backend uses ASP.NET Core Minimal API to keep the API simple and readable.
 
-### Cosmos DB for events
+### Feature folders
 
-Audit events are stored separately because they represent a log of what happened. Events are append-only and can evolve over time, which makes document storage a good fit.
+The backend is organized by feature area rather than technical layer only.
 
-### Interface-based audit storage
+Examples:
 
-The backend depends on `IAuditEventStore` instead of directly depending on Cosmos DB. This keeps the business logic independent of the storage implementation and makes the code easier to test.
+* Assets
+* Inventory
+* Portfolios
+* PurchaseRequests
+* AuditEvents
 
-### Local-first development
+This makes the project easier to navigate as it grows.
 
-The project can run locally without Azure dependencies. This makes it easier for others to clone, review and run the project.
+### Business rules in backend
+
+Purchase request status transitions are validated in the backend.
+
+The frontend only exposes available actions, but the backend remains the source of truth.
+
+### Interface-based audit event store
+
+Audit storage is abstracted behind an interface, making it easy to switch between in-memory storage and Cosmos DB.
 
 ### Low-cost cloud demo
 
-The deployed version uses Azure free-tier-friendly services where possible. This makes it suitable as a public portfolio project without requiring a production-scale cloud setup.
+The live version is intentionally deployed using low-cost Azure services.
+
+The goal is to demonstrate architecture, deployment and working software without creating unnecessary cloud costs.
 
 ## Limitations
 
-This is a portfolio demo, not a production SaaS system.
+This is a portfolio demo and not a production SaaS product.
 
-Current limitations include:
+Current limitations:
 
 * No authentication or authorization
-* SQLite/demo persistence instead of a production SQL database
-* Cosmos DB integration is included but disabled by default
-* No frontend test suite yet
+* SQLite is used for demo persistence
+* Cosmos DB is implemented but disabled in the live demo
+* No Azure SQL production database
+* No pagination
+* No frontend tests
+* No user management
 * No role-based access control
-* Limited validation and error handling
-* No real external market pricing integration
-* No production observability setup
+* No advanced observability setup
+* Demo data is seeded
 
 ## Future improvements
 
-Potential next steps:
+Potential future improvements include:
 
-* Azure SQL Database integration
-* Enable Azure Cosmos DB Free Tier for real audit event storage
-* Azure Bicep infrastructure
-* Azure Function worker for integration events
-* Cosmos DB Change Feed
-* GraphQL endpoint for portfolio queries
-* Docker Compose setup
 * Portfolio risk indicators
-* Integration status dashboard
-* Frontend tests
-* Authentication and authorization
-* Role-based access for internal users
-* More realistic ERP and warehouse sync simulation
+* Low inventory warnings
+* Filtering purchase requests by status
+* Filtering assets by type or region
+* Frontend tests with Vitest and React Testing Library
+* Authentication and role-based access
+* Azure SQL production persistence
+* Enabling Cosmos DB audit event storage
+* Application Insights
+* Pagination and sorting
+* More detailed audit event metadata
+* Better error messages in the frontend
+* Separate admin and customer views
+
+## Status
+
+The project is live and deployed.
+
+Current implemented features:
+
+* Backend API
+* React dashboard
+* SQL persistence
+* Purchase request workflow
+* Audit event tracking
+* Automated backend tests
+* GitHub Actions CI/CD
+* Azure Static Web Apps frontend
+* Azure App Service backend
