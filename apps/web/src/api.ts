@@ -1,5 +1,18 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5107";
 
+export type PurchaseRequestStatus = 0 | 1 | 2 | 3;
+
+export const purchaseRequestStatusLabels: Record<PurchaseRequestStatus, string> = {
+    0: "Pending",
+    1: "Approved",
+    2: "Rejected",
+    3: "Completed",
+};
+
+export type UpdatePurchaseRequestStatus = {
+    performedBy: string;
+};
+
 export type Asset = {
     id: string;
     name: string;
@@ -44,7 +57,7 @@ export type PurchaseRequest = {
     assetId: string;
     quantity: number;
     requestedPrice: number;
-    status: number;
+    status: PurchaseRequestStatus;
     requestedBy: string;
     createdUtc: string;
 };
@@ -93,6 +106,22 @@ async function postJson<TResponse, TBody>(url: string, body: TBody): Promise<TRe
     return response.json();
 }
 
+async function patchJson<TResponse, TBody>(path: string, body: TBody): Promise<TResponse> {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+        throw new Error(`PATCH ${path} failed with status ${response.status}`);
+    }
+
+    return response.json() as Promise<TResponse>;
+}
+
 export const api = {
     getAssets: () => getJson<Asset[]>("/api/assets"),
 
@@ -108,4 +137,22 @@ export const api = {
 
     createPurchaseRequest: (request: CreatePurchaseRequest) =>
         postJson<PurchaseRequest, CreatePurchaseRequest>("/api/purchase-requests", request),
+
+    approvePurchaseRequest: (id: string, request: UpdatePurchaseRequestStatus) =>
+        patchJson<PurchaseRequest, UpdatePurchaseRequestStatus>(
+            `/api/purchase-requests/${id}/approve`,
+            request
+        ),
+
+    rejectPurchaseRequest: (id: string, request: UpdatePurchaseRequestStatus) =>
+        patchJson<PurchaseRequest, UpdatePurchaseRequestStatus>(
+            `/api/purchase-requests/${id}/reject`,
+            request
+        ),
+
+    completePurchaseRequest: (id: string, request: UpdatePurchaseRequestStatus) =>
+        patchJson<PurchaseRequest, UpdatePurchaseRequestStatus>(
+            `/api/purchase-requests/${id}/complete`,
+            request
+        ),
 };

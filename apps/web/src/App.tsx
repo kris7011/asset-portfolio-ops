@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
-import { api, type Asset, type AuditEvent, type InventoryItem, type Portfolio, type PurchaseRequest } from "./api";
+import {
+  api,
+  purchaseRequestStatusLabels,
+  type Asset,
+  type InventoryItem,
+  type Portfolio,
+  type PurchaseRequest,
+  type PurchaseRequestStatus,
+  type AuditEvent,
+} from "./api";
 
 const demoCustomerId = "11111111-1111-1111-1111-111111111111";
 const demoAssetId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -13,6 +22,7 @@ function App() {
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingPurchaseRequestId, setUpdatingPurchaseRequestId] = useState<string | null>(null);
 
   const totalInventory = useMemo(() => {
     return inventory.reduce((total, item) => total + item.quantityAvailable, 0);
@@ -64,6 +74,42 @@ function App() {
       await loadDashboard();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Unknown error");
+    }
+  }
+
+  async function updatePurchaseRequestStatus(
+    id: string,
+    action: "approve" | "reject" | "complete"
+  ) {
+    try {
+      setUpdatingPurchaseRequestId(id);
+      setError(null);
+
+      const request = {
+        performedBy: "Kris",
+      };
+
+      if (action === "approve") {
+        await api.approvePurchaseRequest(id, request);
+      }
+
+      if (action === "reject") {
+        await api.rejectPurchaseRequest(id, request);
+      }
+
+      if (action === "complete") {
+        await api.completePurchaseRequest(id, request);
+      }
+
+      await loadDashboard();
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Could not update purchase request."
+      );
+    } finally {
+      setUpdatingPurchaseRequestId(null);
     }
   }
 
@@ -180,13 +226,56 @@ function App() {
                 ) : (
                   purchaseRequests.map((request) => {
                     const asset = assets.find((assetItem) => assetItem.id === request.assetId);
+                    const statusLabel = getPurchaseRequestStatusLabel(request.status);
+                    const isUpdating = updatingPurchaseRequestId === request.id;
 
                     return (
                       <div className="listItem" key={request.id}>
                         <strong>{asset?.name ?? "Unknown asset"}</strong>
+
                         <span>
                           {request.quantity} units · {formatMoney(request.requestedPrice)}
                         </span>
+
+                        <span className={`status-badge status-${statusLabel.toLowerCase()}`}>
+                          {statusLabel}
+                        </span>
+
+                        <div className="action-buttons">
+                          {canApproveOrReject(request.status) && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => updatePurchaseRequestStatus(request.id, "approve")}
+                                disabled={isUpdating}
+                              >
+                                Approve
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => updatePurchaseRequestStatus(request.id, "reject")}
+                                disabled={isUpdating}
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+
+                          {canComplete(request.status) && (
+                            <button
+                              type="button"
+                              onClick={() => updatePurchaseRequestStatus(request.id, "complete")}
+                              disabled={isUpdating}
+                            >
+                              Complete
+                            </button>
+                          )}
+
+                          {!canApproveOrReject(request.status) && !canComplete(request.status) && (
+                            <small>No actions available</small>
+                          )}
+                        </div>
                       </div>
                     );
                   })
@@ -236,6 +325,18 @@ function formatMoney(value: number) {
     currency: "DKK",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function getPurchaseRequestStatusLabel(status: PurchaseRequestStatus) {
+  return purchaseRequestStatusLabels[status] ?? "Unknown";
+}
+
+function canApproveOrReject(status: PurchaseRequestStatus) {
+  return status === 0;
+}
+
+function canComplete(status: PurchaseRequestStatus) {
+  return status === 1;
 }
 
 export default App;
