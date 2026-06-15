@@ -4,6 +4,7 @@ using AssetPortfolioOps.Api.Features.AuditEvents;
 using AssetPortfolioOps.Api.Features.Inventory;
 using AssetPortfolioOps.Api.Features.Portfolios;
 using AssetPortfolioOps.Api.Features.PurchaseRequests;
+using AssetPortfolioOps.Api.Features.RiskIndicators;
 using Microsoft.Azure.Cosmos;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -42,6 +43,7 @@ builder.Services.AddScoped<IAssetService, AssetService>();
 builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IPortfolioService, PortfolioService>();
 builder.Services.AddScoped<IPurchaseRequestService, PurchaseRequestService>();
+builder.Services.AddScoped<IRiskIndicatorService, RiskIndicatorService>();
 
 var cosmosDbEnabled = builder.Configuration.GetValue<bool>("CosmosDb:Enabled");
 
@@ -131,6 +133,20 @@ api.MapGet("/customers/{customerId:guid}/portfolio", (
     return portfolio is null
         ? Results.NotFound()
         : Results.Ok(portfolio);
+});
+
+api.MapGet("/customers/{customerId:guid}/risk-indicators", async (
+    Guid customerId,
+    IRiskIndicatorService riskIndicatorService,
+    CancellationToken cancellationToken) =>
+{
+    var indicators = await riskIndicatorService.GetForCustomerAsync(
+        customerId,
+        cancellationToken);
+
+    return indicators is null
+        ? Results.NotFound()
+        : Results.Ok(indicators);
 });
 
 api.MapGet("/inventory", (IInventoryService inventoryService) =>

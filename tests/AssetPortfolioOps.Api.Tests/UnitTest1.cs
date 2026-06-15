@@ -3,6 +3,7 @@ using AssetPortfolioOps.Api.Domain;
 using AssetPortfolioOps.Api.Features.AuditEvents;
 using AssetPortfolioOps.Api.Features.Portfolios;
 using AssetPortfolioOps.Api.Features.PurchaseRequests;
+using AssetPortfolioOps.Api.Features.RiskIndicators;
 using Microsoft.EntityFrameworkCore;
 
 namespace AssetPortfolioOps.Api.Tests;
@@ -289,6 +290,49 @@ internal static class TestDbContextFactory
             WarehouseLocation = item.WarehouseLocation,
             LastUpdatedUtc = item.LastUpdatedUtc
         });
+    }
+}
+
+public sealed class RiskIndicatorServiceTests
+{
+    [Fact]
+    public async Task GetForCustomerAsync_ReturnsHighConcentrationRisk()
+    {
+        using var dbContext = TestDbContextFactory.Create();
+        var service = new RiskIndicatorService(dbContext);
+
+        var indicators = await service.GetForCustomerAsync(SeedData.CustomerEmmaId);
+
+        Assert.NotNull(indicators);
+        Assert.Contains(indicators, indicator =>
+            indicator.Type == "HighConcentration" &&
+            indicator.Severity == "High" &&
+            indicator.Message.Contains("Bordeaux Premier Cru 2016"));
+    }
+
+    [Fact]
+    public async Task GetForCustomerAsync_ReturnsLowInventoryWarning()
+    {
+        using var dbContext = TestDbContextFactory.Create();
+        var service = new RiskIndicatorService(dbContext);
+
+        var indicators = await service.GetForCustomerAsync(SeedData.CustomerEmmaId);
+
+        Assert.NotNull(indicators);
+        Assert.Contains(indicators, indicator =>
+            indicator.Type == "LowInventory" &&
+            indicator.Message.Contains("Burgundy Grand Cru 2019"));
+    }
+
+    [Fact]
+    public async Task GetForCustomerAsync_ReturnsNull_WhenCustomerDoesNotExist()
+    {
+        using var dbContext = TestDbContextFactory.Create();
+        var service = new RiskIndicatorService(dbContext);
+
+        var indicators = await service.GetForCustomerAsync(Guid.NewGuid());
+
+        Assert.Null(indicators);
     }
 }
 
