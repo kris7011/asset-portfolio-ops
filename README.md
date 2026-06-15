@@ -1,6 +1,6 @@
 # Asset Portfolio Ops
 
-Asset Portfolio Ops is a cloud-first full-stack demo platform for managing investment assets, customer portfolios, purchase requests, inventory data and audit events.
+Asset Portfolio Ops is a cloud-first full-stack demo platform for managing investment assets, customer portfolios, purchase requests, inventory data, portfolio risk indicators and audit events.
 
 The project demonstrates a modern full-stack architecture using .NET, React, TypeScript, SQL persistence, an Azure Cosmos DB-ready audit event store, automated tests and cloud deployment.
 
@@ -24,18 +24,19 @@ The frontend is deployed to Azure Static Web Apps Free, and the backend API is d
 
 ## Purpose
 
-The purpose of this project is to demonstrate how a full-stack application can support an operational investment workflow.
+The purpose of this project is to demonstrate how a full-stack application can support operational investment workflows.
 
 The application shows how a business can manage:
 
 * Investment assets
 * Customer portfolio value
 * Inventory levels
+* Portfolio risk indicators
 * Purchase requests
 * Purchase request status transitions
 * Audit events for operational decisions
 
-The project is designed as a public portfolio project, showing practical software engineering skills in a realistic domain.
+The project is designed as a public portfolio project, showing practical software engineering skills in a realistic business domain.
 
 ## Tech stack
 
@@ -79,7 +80,8 @@ asset-portfolio-ops
 │   │   │   ├── AuditEvents
 │   │   │   ├── Inventory
 │   │   │   ├── Portfolios
-│   │   │   └── PurchaseRequests
+│   │   │   ├── PurchaseRequests
+│   │   │   └── RiskIndicators
 │   │   ├── Program.cs
 │   │   └── AssetPortfolioOps.Api.csproj
 │   │
@@ -159,6 +161,18 @@ Completed → Rejected
 
 are not allowed.
 
+### Risk indicators
+
+Represents portfolio and operational warnings based on current data.
+
+The current implementation can detect:
+
+* High portfolio concentration
+* Low inventory
+* Pending purchase request exposure
+
+This moves the dashboard beyond displaying raw data and into decision support.
+
 ### Audit events
 
 Represents important business actions such as:
@@ -177,6 +191,7 @@ The backend API supports:
 * Reading assets
 * Reading inventory
 * Reading a customer portfolio
+* Reading portfolio risk indicators
 * Creating purchase requests
 * Approving purchase requests
 * Rejecting purchase requests
@@ -211,6 +226,23 @@ GET /api/customers/{customerId}/portfolio
 ```
 
 Returns portfolio value, gain/loss and portfolio items for a customer.
+
+### Risk indicators
+
+```http
+GET /api/customers/{customerId}/risk-indicators
+```
+
+Returns decision-support indicators for a customer portfolio.
+
+Example indicator types:
+
+```text
+HighConcentration
+LowInventory
+PendingRequestExposure
+NoRiskDetected
+```
 
 ### Inventory
 
@@ -263,6 +295,54 @@ This demonstrates:
 * Frontend workflow actions
 * Audit trail for business decisions
 * Automated tests for workflow rules
+
+## Portfolio risk indicators
+
+The project includes a risk indicator service that evaluates customer portfolio data and operational data.
+
+The dashboard currently shows:
+
+### High concentration risk
+
+Detects when one asset represents a high percentage of the total portfolio value.
+
+Example:
+
+```text
+Bordeaux Premier Cru 2016 represents 73.7% of the total portfolio value.
+```
+
+### Low inventory warning
+
+Detects when an asset in the customer portfolio has low available inventory.
+
+Example:
+
+```text
+Burgundy Grand Cru 2019 has only 9 units available.
+```
+
+### Pending request exposure
+
+Calculates the total value of pending purchase requests for the customer.
+
+Example:
+
+```text
+3 pending purchase request(s) represent 36,900 DKK in potential new exposure.
+```
+
+### No risk detected fallback
+
+If no significant indicators are found, the service returns a low-severity informational indicator.
+
+This demonstrates:
+
+* Business logic beyond CRUD
+* Data interpretation
+* Decision-support functionality
+* Backend aggregation logic
+* Frontend visualization of risk severity
 
 ## SQL persistence
 
@@ -371,6 +451,8 @@ The React dashboard shows:
 * Inventory units
 * Portfolio holdings
 * Inventory overview
+* Risk indicators
+* Risk severity badges
 * Purchase requests
 * Purchase request status badges
 * Purchase request workflow actions
@@ -389,7 +471,7 @@ After each action, the dashboard reloads the latest data from the backend API.
 
 ## Request flow
 
-A typical workflow looks like this:
+A typical purchase request workflow looks like this:
 
 ```text
 User clicks "Create demo purchase request"
@@ -415,6 +497,20 @@ Audit event is written
 Dashboard reloads with updated status
 ```
 
+A typical risk indicator flow looks like this:
+
+```text
+Dashboard loads customer data
+        ↓
+React frontend calls risk indicator endpoint
+        ↓
+ASP.NET Core API evaluates portfolio, inventory and purchase requests
+        ↓
+Risk indicators are returned
+        ↓
+Dashboard displays severity badges and messages
+```
+
 ## Automated tests
 
 The backend includes xUnit tests for important business logic.
@@ -432,6 +528,9 @@ Current test coverage includes:
 * Completing approved purchase requests
 * Rejecting invalid status transitions
 * Writing audit events during status changes
+* High concentration risk detection
+* Low inventory warning detection
+* Missing customer handling for risk indicators
 
 Run tests:
 
@@ -598,6 +697,8 @@ This project demonstrates practical experience with:
 * SQL-based relational modeling
 * Business workflow implementation
 * Status transition validation
+* Portfolio risk indicator logic
+* Decision-support functionality
 * Audit event tracking
 * Azure Cosmos DB-ready architecture
 * React and TypeScript frontend development
@@ -623,6 +724,7 @@ This project is relevant to roles involving:
 * Operational dashboards
 * Integration-heavy systems
 * Auditability and traceability
+* Data-driven decision support
 
 It shows how a small product feature can be built end-to-end:
 
@@ -658,6 +760,7 @@ Examples:
 * Inventory
 * Portfolios
 * PurchaseRequests
+* RiskIndicators
 * AuditEvents
 
 This makes the project easier to navigate as it grows.
@@ -667,6 +770,12 @@ This makes the project easier to navigate as it grows.
 Purchase request status transitions are validated in the backend.
 
 The frontend only exposes available actions, but the backend remains the source of truth.
+
+### Risk indicators as backend logic
+
+Risk indicators are calculated in the backend because they are business rules, not only visual UI logic.
+
+The frontend displays the result, while the backend owns the interpretation of portfolio and operational data.
 
 ### Interface-based audit event store
 
@@ -694,13 +803,14 @@ Current limitations:
 * No role-based access control
 * No advanced observability setup
 * Demo data is seeded
+* Risk indicator thresholds are simple demo rules
 
 ## Future improvements
 
 Potential future improvements include:
 
-* Portfolio risk indicators
-* Low inventory warnings
+* More advanced portfolio risk models
+* Historical market value tracking
 * Filtering purchase requests by status
 * Filtering assets by type or region
 * Frontend tests with Vitest and React Testing Library
@@ -722,6 +832,7 @@ Current implemented features:
 * Backend API
 * React dashboard
 * SQL persistence
+* Portfolio risk indicators
 * Purchase request workflow
 * Audit event tracking
 * Automated backend tests
