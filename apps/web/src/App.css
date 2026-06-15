@@ -264,3 +264,40 @@ h2 {
   color: #667085;
   font-size: 0.8rem;
 }
+
+.riskItem {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.riskHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.severity-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.severity-low {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.severity-medium {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.severity-high {
+  background: #fef2f2;
+  color: #b91c1c;
+}

@@ -8,6 +8,7 @@ import {
   type Portfolio,
   type PurchaseRequest,
   type PurchaseRequestStatus,
+  type RiskIndicator,
   type AuditEvent,
 } from "./api";
 
@@ -17,6 +18,7 @@ const demoAssetId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 function App() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  const [riskIndicators, setRiskIndicators] = useState<RiskIndicator[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>([]);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
@@ -36,12 +38,14 @@ function App() {
       const [
         assetsResponse,
         portfolioResponse,
+        riskIndicatorsResponse,
         inventoryResponse,
         purchaseRequestsResponse,
         auditEventsResponse,
       ] = await Promise.all([
         api.getAssets(),
         api.getPortfolio(demoCustomerId),
+        api.getRiskIndicators(demoCustomerId),
         api.getInventory(),
         api.getPurchaseRequests(),
         api.getAuditEvents(),
@@ -49,6 +53,7 @@ function App() {
 
       setAssets(assetsResponse);
       setPortfolio(portfolioResponse);
+      setRiskIndicators(riskIndicatorsResponse);
       setInventory(inventoryResponse);
       setPurchaseRequests(purchaseRequestsResponse);
       setAuditEvents(auditEventsResponse);
@@ -212,6 +217,31 @@ function App() {
                     </div>
                   );
                 })}
+              </div>
+            </section>
+
+            <section className="card">
+              <div className="sectionHeader">
+                <h2>Risk indicators</h2>
+              </div>
+
+              <div className="list">
+                {riskIndicators.length === 0 ? (
+                  <p>No risk indicators available.</p>
+                ) : (
+                  riskIndicators.map((indicator) => (
+                    <div className="listItem riskItem" key={`${indicator.type}-${indicator.title}`}>
+                      <div className="riskHeader">
+                        <strong>{indicator.title}</strong>
+                        <span className={`severity-badge severity-${indicator.severity.toLowerCase()}`}>
+                          {indicator.severity}
+                        </span>
+                      </div>
+
+                      <span>{indicator.message}</span>
+                    </div>
+                  ))
+                )}
               </div>
             </section>
 

@@ -1,5 +1,14 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5107";
 
+export type RiskIndicatorSeverity = "Low" | "Medium" | "High";
+
+export type RiskIndicator = {
+    type: string;
+    severity: RiskIndicatorSeverity;
+    title: string;
+    message: string;
+};
+
 export type PurchaseRequestStatus = 0 | 1 | 2 | 3;
 
 export const purchaseRequestStatusLabels: Record<PurchaseRequestStatus, string> = {
@@ -127,6 +136,9 @@ export const api = {
 
     getPortfolio: (customerId: string) =>
         getJson<Portfolio>(`/api/customers/${customerId}/portfolio`),
+
+    getRiskIndicators: (customerId: string) =>
+        getJson<RiskIndicator[]>(`/api/customers/${customerId}/risk-indicators`),
 
     getInventory: () => getJson<InventoryItem[]>("/api/inventory"),
 
