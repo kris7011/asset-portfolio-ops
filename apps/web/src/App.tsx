@@ -15,57 +15,64 @@ import {
 const demoCustomerId = "11111111-1111-1111-1111-111111111111";
 const demoAssetId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
+type DashboardData = {
+  assets: Asset[];
+  portfolio: Portfolio;
+  riskIndicators: RiskIndicator[];
+  inventory: InventoryItem[];
+  purchaseRequests: PurchaseRequest[];
+  auditEvents: AuditEvent[];
+};
+
+const emptyDashboard: Omit<DashboardData, "portfolio"> & { portfolio: Portfolio | null } = {
+  assets: [],
+  portfolio: null,
+  riskIndicators: [],
+  inventory: [],
+  purchaseRequests: [],
+  auditEvents: [],
+};
+
+async function fetchDashboardData(): Promise<DashboardData> {
+  const [assets, portfolio, riskIndicators, inventory, purchaseRequests, auditEvents] =
+    await Promise.all([
+      api.getAssets(),
+      api.getPortfolio(demoCustomerId),
+      api.getRiskIndicators(demoCustomerId),
+      api.getInventory(),
+      api.getPurchaseRequests(),
+      api.getAuditEvents(),
+    ]);
+
+  return { assets, portfolio, riskIndicators, inventory, purchaseRequests, auditEvents };
+}
+
+function getErrorMessage(requestError: unknown, fallback: string) {
+  return requestError instanceof Error ? requestError.message : fallback;
+}
+
 function App() {
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
-  const [riskIndicators, setRiskIndicators] = useState<RiskIndicator[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>([]);
-  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingPurchaseRequestId, setUpdatingPurchaseRequestId] = useState<string | null>(null);
+
+  const { assets, portfolio, riskIndicators, inventory, purchaseRequests, auditEvents } =
+    dashboard ?? emptyDashboard;
 
   const totalInventory = useMemo(() => {
     return inventory.reduce((total, item) => total + item.quantityAvailable, 0);
   }, [inventory]);
 
-  async function loadDashboard() {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const [
-        assetsResponse,
-        portfolioResponse,
-        riskIndicatorsResponse,
-        inventoryResponse,
-        purchaseRequestsResponse,
-        auditEventsResponse,
-      ] = await Promise.all([
-        api.getAssets(),
-        api.getPortfolio(demoCustomerId),
-        api.getRiskIndicators(demoCustomerId),
-        api.getInventory(),
-        api.getPurchaseRequests(),
-        api.getAuditEvents(),
-      ]);
-
-      setAssets(assetsResponse);
-      setPortfolio(portfolioResponse);
-      setRiskIndicators(riskIndicatorsResponse);
-      setInventory(inventoryResponse);
-      setPurchaseRequests(purchaseRequestsResponse);
-      setAuditEvents(auditEventsResponse);
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unknown error");
-    } finally {
-      setIsLoading(false);
-    }
+  // Reload data after an action without replacing the dashboard with the loading state.
+  async function refreshDashboard() {
+    setDashboard(await fetchDashboardData());
   }
 
   async function createDemoPurchaseRequest() {
     try {
+      setIsCreating(true);
       setError(null);
 
       await api.createPurchaseRequest({
@@ -76,9 +83,11 @@ function App() {
         requestedBy: "Kris",
       });
 
-      await loadDashboard();
+      await refreshDashboard();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unknown error");
+      setError(getErrorMessage(requestError, "Could not create purchase request."));
+    } finally {
+      setIsCreating(false);
     }
   }
 
@@ -106,20 +115,38 @@ function App() {
         await api.completePurchaseRequest(id, request);
       }
 
-      await loadDashboard();
+      await refreshDashboard();
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Could not update purchase request."
-      );
+      setError(getErrorMessage(requestError, "Could not update purchase request."));
     } finally {
       setUpdatingPurchaseRequestId(null);
     }
   }
 
   useEffect(() => {
-    loadDashboard();
+    let ignore = false;
+
+    fetchDashboardData()
+      .then((data) => {
+        if (!ignore) {
+          setDashboard(data);
+        }
+      })
+      .catch((requestError: unknown) => {
+        if (!ignore) {
+          setError(getErrorMessage(requestError, "Could not load dashboard."));
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      });
+
+    // Ignore late responses if the component unmounts (and in React StrictMode's double effect run).
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   return (
@@ -134,13 +161,18 @@ function App() {
           </p>
         </div>
 
-        <button className="primaryButton" onClick={createDemoPurchaseRequest}>
-          Create demo purchase request
+        <button
+          type="button"
+          className="primaryButton"
+          onClick={createDemoPurchaseRequest}
+          disabled={isLoading || isCreating}
+        >
+          {isCreating ? "Creating..." : "Create demo purchase request"}
         </button>
       </section>
 
       {error && (
-        <section className="errorBox">
+        <section className="errorBox" role="alert">
           <strong>Something went wrong:</strong> {error}
         </section>
       )}

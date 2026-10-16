@@ -534,6 +534,25 @@ Run tests:
 dotnet test --configuration Release
 ```
 
+### Frontend tests
+
+The React dashboard has component and API client tests with Vitest, React Testing Library and jsdom. They stub `fetch` with an in-memory fake API, so no backend is needed.
+
+They cover:
+
+* Rendering portfolio, inventory and risk indicators
+* Showing only the actions allowed for each purchase request status
+* Approving a request and refreshing the list without hiding the dashboard
+* Showing the backend's validation message (`{ "error": "..." }`) when an action is rejected
+* Preventing duplicate submissions while a purchase request is being created
+* Showing an error when the dashboard cannot be loaded
+
+```powershell
+cd apps/web
+npm test
+npm run lint
+```
+
 ## Local development
 
 ### Prerequisites
@@ -619,7 +638,7 @@ Workflow:
 Runs on every push to `main` and on every pull request. It needs no secrets and never touches Azure.
 
 * Backend job: restores, builds and tests the .NET solution (test results are uploaded as a workflow artifact)
-* Frontend job: installs dependencies with `npm ci` and builds the React app
+* Frontend job: installs dependencies with `npm ci`, then runs ESLint, the Vitest test suite and the production build
 
 ### Backend deployment (manual)
 
@@ -796,7 +815,7 @@ Current limitations:
 * Cosmos DB is implemented but disabled by default
 * No Azure SQL production database
 * No pagination
-* No frontend tests
+* No end-to-end browser tests
 * No user management
 * No role-based access control
 * No advanced observability setup
@@ -811,14 +830,12 @@ Potential future improvements include:
 * Historical market value tracking
 * Filtering purchase requests by status
 * Filtering assets by type or region
-* Frontend tests with Vitest and React Testing Library
 * Authentication and role-based access
 * Azure SQL production persistence
 * Enabling Cosmos DB audit event storage
 * Application Insights
 * Pagination and sorting
 * More detailed audit event metadata
-* Better error messages in the frontend
 * Separate admin and customer views
 
 ## Status
@@ -834,5 +851,6 @@ Current implemented features:
 * Purchase request workflow
 * Audit event tracking
 * Automated backend tests
+* Frontend component tests
 * GitHub Actions CI (build and test)
 * Manually triggered deployment workflows for Azure Static Web Apps and Azure App Service
