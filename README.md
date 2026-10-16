@@ -509,7 +509,10 @@ Dashboard displays severity badges and messages
 
 ## Automated tests
 
-The backend includes xUnit tests for important business logic.
+The backend has two kinds of xUnit tests:
+
+* **Service tests** exercise the business logic directly against the EF Core in-memory provider.
+* **API integration tests** (`tests/AssetPortfolioOps.Api.Tests/Api`) host the real API with `WebApplicationFactory` against an in-memory **SQLite** database. They cover HTTP routing, model binding, status codes, error bodies, JSON serialization and the SQLite provider the app actually uses. Each test gets its own isolated database.
 
 Current test coverage includes:
 
@@ -524,9 +527,14 @@ Current test coverage includes:
 * Completing approved purchase requests
 * Rejecting invalid status transitions
 * Writing audit events during status changes
+* Rejecting every invalid status transition without changing status or writing audit events
+* Validation of price, requester, customer and asset on creation
 * High concentration risk detection
 * Low inventory warning detection
+* Pending request exposure severity thresholds
+* "No risk detected" fallback
 * Missing customer handling for risk indicators
+* HTTP status codes (201, 400 with error message, 404) and the full create → approve → complete workflow through the API
 
 Run tests:
 
