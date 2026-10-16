@@ -2,21 +2,17 @@
 
 Asset Portfolio Ops is a cloud-first full-stack demo platform for managing investment assets, customer portfolios, purchase requests, inventory data, portfolio risk indicators and audit events.
 
-The project demonstrates a modern full-stack architecture using .NET, React, TypeScript, SQL persistence, an Azure Cosmos DB-ready audit event store, automated tests and cloud deployment.
+The project demonstrates a modern full-stack architecture using .NET, React, TypeScript, SQL persistence, an Azure Cosmos DB-ready audit event store, automated tests, GitHub Actions CI and Azure deployment workflows.
 
 The current sample domain uses fine wine as the primary asset type, but the model is intentionally generic and can support other collectible or investment assets.
 
-## Live demo
+## Deployment status
 
-Frontend:
+There is currently **no live demo**.
 
-https://lemon-coast-018ec2603.7.azurestaticapps.net
+The project was previously deployed to Azure Static Web Apps (Free) and Azure App Service (Free F1). Those Azure resources have since been decommissioned, so the old demo URLs no longer respond.
 
-Backend health check:
-
-https://api-asset-portfolio-ops-dqbeesavemezebhs.denmarkeast-01.azurewebsites.net/health
-
-The frontend is deployed to Azure Static Web Apps Free, and the backend API is deployed to Azure App Service Free F1. The project is intentionally configured as a low-cost portfolio demo.
+The application runs fully locally (see [Local development](#local-development)). The Azure deployment workflows are kept in the repository as manually triggered references for redeploying to new Azure resources (see [CI/CD](#cicd)).
 
 ## Dashboard preview
 
@@ -60,12 +56,11 @@ The project is designed as a public portfolio project, showing practical softwar
 
 ### Cloud and DevOps
 
-* Azure Static Web Apps
-* Azure App Service
-* GitHub Actions
+* GitHub Actions CI (build and test on every push and pull request)
+* Manually triggered Azure deployment workflows
+* Azure Static Web Apps and Azure App Service (previously deployed)
 * Azure DevOps pipeline example
 * Cloud-first configuration
-* CI/CD build, test and deployment workflow
 
 ## Repository structure
 
@@ -107,8 +102,9 @@ asset-portfolio-ops
 ├── .github
 │   └── workflows
 │
+├── global.json
 ├── README.md
-└── AssetPortfolioOps.sln
+└── AssetPortfolioOps.slnx
 ```
 
 ## Domain model
@@ -356,7 +352,7 @@ The following entities are stored in the relational model:
 * Inventory items
 * Purchase requests
 
-For the live demo, the API uses SQLite as a simple low-cost persistence option.
+The API uses SQLite as a simple, zero-cost persistence option.
 
 This is suitable for a portfolio demo, but not intended as a production database setup.
 
@@ -372,7 +368,7 @@ The audit event store is hidden behind this interface:
 public interface IAuditEventStore
 {
     Task AddAsync(AuditEvent auditEvent);
-    Task<IReadOnlyList<AuditEvent>> GetAllAsync();
+    Task<IReadOnlyCollection<AuditEvent>> GetAllAsync();
 }
 ```
 
@@ -383,7 +379,7 @@ Current implementations:
 * `InMemoryAuditEventStore`
 * `CosmosAuditEventStore`
 
-Cosmos DB is currently disabled in the live demo to keep the project low-cost and simple to run.
+Cosmos DB is disabled by default to keep the project free to run and simple to start locally.
 
 It can be enabled through configuration:
 
@@ -587,7 +583,7 @@ VITE_API_BASE_URL=http://localhost:5107
 ### Production example
 
 ```env
-VITE_API_BASE_URL=https://api-asset-portfolio-ops-dqbeesavemezebhs.denmarkeast-01.azurewebsites.net
+VITE_API_BASE_URL=https://<your-api>.azurewebsites.net
 ```
 
 This makes the same frontend code work both locally and in Azure.
@@ -610,11 +606,22 @@ npm run build
 
 ## CI/CD
 
-The project uses GitHub Actions for deployment.
+Continuous integration and deployment are deliberately separated.
 
-### Backend deployment
+### Continuous integration
 
-The backend API is deployed to Azure App Service through GitHub Actions.
+Workflow:
+
+```text
+.github/workflows/ci.yml
+```
+
+Runs on every push to `main` and on every pull request. It needs no secrets and never touches Azure.
+
+* Backend job: restores, builds and tests the .NET solution (test results are uploaded as a workflow artifact)
+* Frontend job: installs dependencies with `npm ci` and builds the React app
+
+### Backend deployment (manual)
 
 Workflow:
 
@@ -622,17 +629,9 @@ Workflow:
 .github/workflows/api-app-service.yml
 ```
 
-The workflow:
+Triggered manually with `workflow_dispatch`. It builds, tests, publishes and deploys the API to Azure App Service using the `AZURE_WEBAPP_PUBLISH_PROFILE` secret.
 
-* Restores .NET dependencies
-* Builds the API
-* Runs backend tests
-* Publishes the API
-* Deploys to Azure App Service
-
-### Frontend deployment
-
-The frontend is deployed to Azure Static Web Apps through GitHub Actions.
+### Frontend deployment (manual)
 
 Workflow:
 
@@ -640,11 +639,9 @@ Workflow:
 .github/workflows/azure-static-web-apps-lemon-coast-018ec2603.yml
 ```
 
-The workflow:
+Triggered manually with `workflow_dispatch`. It takes the backend API base URL as an input, builds the React app and deploys it to Azure Static Web Apps.
 
-* Builds the React frontend
-* Uses production API configuration
-* Deploys to Azure Static Web Apps
+Both deployment workflows previously ran automatically on every push (and the frontend workflow also created preview environments for pull requests). Because the original Azure resources have been decommissioned, they now only run on demand and require new Azure resources and secrets to succeed.
 
 ### Azure DevOps pipeline example
 
@@ -656,7 +653,7 @@ infra/azure/azure-pipelines.yml
 
 This is included to demonstrate Azure DevOps CI/CD structure.
 
-The live demo currently uses GitHub Actions for deployment.
+GitHub Actions is the primary CI/CD system for this repository.
 
 ## Configuration
 
@@ -684,7 +681,7 @@ Example development configuration:
 }
 ```
 
-Production CORS is configured to allow the Azure Static Web Apps frontend.
+`appsettings.Production.json` contains the CORS origin of the former Azure Static Web Apps frontend. Update it when redeploying to a new frontend URL.
 
 ## What this project demonstrates
 
@@ -704,9 +701,9 @@ This project demonstrates practical experience with:
 * React and TypeScript frontend development
 * Frontend API integration
 * Cloud-first configuration
-* GitHub Actions CI/CD
-* Azure App Service deployment
-* Azure Static Web Apps deployment
+* GitHub Actions CI separated from deployment
+* Azure App Service deployment workflow
+* Azure Static Web Apps deployment workflow
 * Automated backend tests
 * Clean separation between domain, data and feature logic
 
@@ -783,9 +780,9 @@ Audit storage is abstracted behind an interface, making it easy to switch betwee
 
 ### Low-cost cloud demo
 
-The live version is intentionally deployed using low-cost Azure services.
+The project was deployed using free-tier Azure services to demonstrate architecture, deployment and working software without unnecessary cloud costs.
 
-The goal is to demonstrate architecture, deployment and working software without creating unnecessary cloud costs.
+Those resources have been decommissioned. CI runs without any cloud dependency, and deployment is an explicit manual step.
 
 ## Limitations
 
@@ -795,7 +792,8 @@ Current limitations:
 
 * No authentication or authorization
 * SQLite is used for demo persistence
-* Cosmos DB is implemented but disabled in the live demo
+* No live deployment at the moment (Azure resources decommissioned)
+* Cosmos DB is implemented but disabled by default
 * No Azure SQL production database
 * No pagination
 * No frontend tests
@@ -825,7 +823,7 @@ Potential future improvements include:
 
 ## Status
 
-The project is live and deployed.
+The project is not currently deployed. It runs locally, and CI builds and tests it on every push and pull request.
 
 Current implemented features:
 
@@ -836,6 +834,5 @@ Current implemented features:
 * Purchase request workflow
 * Audit event tracking
 * Automated backend tests
-* GitHub Actions CI/CD
-* Azure Static Web Apps frontend
-* Azure App Service backend
+* GitHub Actions CI (build and test)
+* Manually triggered deployment workflows for Azure Static Web Apps and Azure App Service
