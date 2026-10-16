@@ -1,14 +1,16 @@
 name: Deploy API to Azure App Service
 
+# Manual deployment only.
+# The original Azure App Service instance has been decommissioned, so this
+# workflow no longer runs automatically. It is kept as a reference for
+# redeploying the API with a new App Service and publish profile secret.
+# Build and test validation runs in ci.yml.
+
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "apps/api/**"
-      - "tests/**"
-      - ".github/workflows/api-app-service.yml"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 env:
   DOTNET_VERSION: "10.0.x"
