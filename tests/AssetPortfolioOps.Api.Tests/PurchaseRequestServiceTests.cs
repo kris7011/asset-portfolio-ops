@@ -1,40 +1,9 @@
 using AssetPortfolioOps.Api.Data;
 using AssetPortfolioOps.Api.Domain;
 using AssetPortfolioOps.Api.Features.AuditEvents;
-using AssetPortfolioOps.Api.Features.Portfolios;
 using AssetPortfolioOps.Api.Features.PurchaseRequests;
-using AssetPortfolioOps.Api.Features.RiskIndicators;
-using Microsoft.EntityFrameworkCore;
 
 namespace AssetPortfolioOps.Api.Tests;
-
-public sealed class PortfolioServiceTests
-{
-    [Fact]
-    public void GetPortfolio_ReturnsExpectedMarketValue()
-    {
-        using var dbContext = TestDbContextFactory.Create();
-        var service = new PortfolioService(dbContext);
-
-        var portfolio = service.GetPortfolio(SeedData.CustomerEmmaId);
-
-        Assert.NotNull(portfolio);
-        Assert.Equal(portfolio.Items.Sum(item => item.TotalMarketValue), portfolio.TotalMarketValue);
-        Assert.Equal(portfolio.Items.Sum(item => item.GainLoss), portfolio.TotalGainLoss);
-        Assert.True(portfolio.TotalMarketValue > 0);
-    }
-
-    [Fact]
-    public void GetPortfolio_ReturnsNull_WhenCustomerDoesNotExist()
-    {
-        using var dbContext = TestDbContextFactory.Create();
-        var service = new PortfolioService(dbContext);
-
-        var portfolio = service.GetPortfolio(Guid.NewGuid());
-
-        Assert.Null(portfolio);
-    }
-}
 
 public sealed class PurchaseRequestServiceTests
 {
@@ -223,149 +192,103 @@ public sealed class PurchaseRequestServiceTests
             auditEvent.EntityId == createdRequest.Id.ToString() &&
             auditEvent.Action == PurchaseRequestStatus.Approved.ToString());
     }
-}
 
-internal static class TestDbContextFactory
-{
-    public static AppDbContext Create()
+    [Theory]
+    [InlineData("zero-price")]
+    [InlineData("missing-requested-by")]
+    [InlineData("unknown-customer")]
+    [InlineData("unknown-asset")]
+    public async Task CreateAsync_Throws_AndStoresNothing_WhenInputIsInvalid(string invalidInput)
     {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        var dbContext = new AppDbContext(options);
-
-        dbContext.Customers.AddRange(CloneCustomers());
-        dbContext.Assets.AddRange(CloneAssets());
-        dbContext.Holdings.AddRange(CloneHoldings());
-        dbContext.InventoryItems.AddRange(CloneInventoryItems());
-        dbContext.SaveChanges();
-
-        return dbContext;
-    }
-
-    private static IEnumerable<Customer> CloneCustomers()
-    {
-        return SeedData.Customers.Select(customer => new Customer
-        {
-            Id = customer.Id,
-            Name = customer.Name,
-            Email = customer.Email
-        });
-    }
-
-    private static IEnumerable<Asset> CloneAssets()
-    {
-        return SeedData.Assets.Select(asset => new Asset
-        {
-            Id = asset.Id,
-            Name = asset.Name,
-            Type = asset.Type,
-            Region = asset.Region,
-            VintageYear = asset.VintageYear,
-            MarketPrice = asset.MarketPrice,
-            Currency = asset.Currency
-        });
-    }
-
-    private static IEnumerable<Holding> CloneHoldings()
-    {
-        return SeedData.Holdings.Select(holding => new Holding
-        {
-            Id = holding.Id,
-            CustomerId = holding.CustomerId,
-            AssetId = holding.AssetId,
-            Quantity = holding.Quantity,
-            AveragePurchasePrice = holding.AveragePurchasePrice
-        });
-    }
-
-    private static IEnumerable<InventoryItem> CloneInventoryItems()
-    {
-        return SeedData.InventoryItems.Select(item => new InventoryItem
-        {
-            Id = item.Id,
-            AssetId = item.AssetId,
-            QuantityAvailable = item.QuantityAvailable,
-            WarehouseLocation = item.WarehouseLocation,
-            LastUpdatedUtc = item.LastUpdatedUtc
-        });
-    }
-}
-
-public sealed class RiskIndicatorServiceTests
-{
-    [Fact]
-    public async Task GetForCustomerAsync_ReturnsHighConcentrationRisk()
-    {
-        using var dbContext = TestDbContextFactory.Create();
-        var service = new RiskIndicatorService(dbContext);
-
-        var indicators = await service.GetForCustomerAsync(SeedData.CustomerEmmaId);
-
-        Assert.NotNull(indicators);
-        Assert.Contains(indicators, indicator =>
-            indicator.Type == "HighConcentration" &&
-            indicator.Severity == "High" &&
-            indicator.Message.Contains("Bordeaux Premier Cru 2016"));
-    }
-
-    [Fact]
-    public async Task GetForCustomerAsync_ReturnsLowInventoryWarning()
-    {
-        using var dbContext = TestDbContextFactory.Create();
-        var service = new RiskIndicatorService(dbContext);
-
-        var indicators = await service.GetForCustomerAsync(SeedData.CustomerEmmaId);
-
-        Assert.NotNull(indicators);
-        Assert.Contains(indicators, indicator =>
-            indicator.Type == "LowInventory" &&
-            indicator.Message.Contains("Burgundy Grand Cru 2019"));
-    }
-
-    [Fact]
-    public async Task GetForCustomerAsync_ReturnsNull_WhenCustomerDoesNotExist()
-    {
-        using var dbContext = TestDbContextFactory.Create();
-        var service = new RiskIndicatorService(dbContext);
-
-        var indicators = await service.GetForCustomerAsync(Guid.NewGuid());
-
-        Assert.Null(indicators);
-    }
-}
-
-public sealed class AuditEventStoreTests
-{
-    [Fact]
-    public async Task InMemoryAuditEventStore_ReturnsNewestEventsFirst()
-    {
+        await using var dbContext = TestDbContextFactory.Create();
         var auditEventStore = new InMemoryAuditEventStore();
+        var service = new PurchaseRequestService(dbContext, auditEventStore);
 
-        await auditEventStore.AddAsync(new AuditEvent
+        var request = new CreatePurchaseRequestRequest
         {
-            EntityId = "entity-1",
-            EntityType = "PurchaseRequest",
-            Action = "Created",
-            PerformedBy = "Kris",
-            TimestampUtc = new DateTime(2026, 6, 14, 8, 0, 0, DateTimeKind.Utc)
+            CustomerId = invalidInput == "unknown-customer" ? Guid.NewGuid() : SeedData.CustomerEmmaId,
+            AssetId = invalidInput == "unknown-asset" ? Guid.NewGuid() : SeedData.BordeauxAssetId,
+            Quantity = 2,
+            RequestedPrice = invalidInput == "zero-price" ? 0m : 12300m,
+            RequestedBy = invalidInput == "missing-requested-by" ? " " : "Kris"
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(request));
+        Assert.Empty(dbContext.PurchaseRequests);
+        Assert.Empty(await auditEventStore.GetAllAsync());
+    }
+
+    [Theory]
+    [InlineData(PurchaseRequestStatus.Approved, "approve")]
+    [InlineData(PurchaseRequestStatus.Approved, "reject")]
+    [InlineData(PurchaseRequestStatus.Rejected, "approve")]
+    [InlineData(PurchaseRequestStatus.Rejected, "complete")]
+    [InlineData(PurchaseRequestStatus.Completed, "reject")]
+    [InlineData(PurchaseRequestStatus.Completed, "complete")]
+    public async Task StatusChange_Throws_AndKeepsStatus_WhenTransitionIsNotAllowed(
+        PurchaseRequestStatus currentStatus,
+        string action)
+    {
+        await using var dbContext = TestDbContextFactory.Create();
+        var auditEventStore = new InMemoryAuditEventStore();
+        var service = new PurchaseRequestService(dbContext, auditEventStore);
+        var purchaseRequest = await CreateRequestWithStatusAsync(service, currentStatus);
+        var auditEventCountBefore = (await auditEventStore.GetAllAsync()).Count;
+
+        Task<PurchaseRequest> changeStatus = action switch
+        {
+            "approve" => service.ApproveAsync(purchaseRequest.Id, "Katrine"),
+            "reject" => service.RejectAsync(purchaseRequest.Id, "Katrine"),
+            _ => service.CompleteAsync(purchaseRequest.Id, "Katrine")
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => changeStatus);
+        Assert.Equal(currentStatus, dbContext.PurchaseRequests.Single().Status);
+        Assert.Equal(auditEventCountBefore, (await auditEventStore.GetAllAsync()).Count);
+    }
+
+    [Fact]
+    public async Task ApproveAsync_ThrowsKeyNotFound_WhenRequestDoesNotExist()
+    {
+        await using var dbContext = TestDbContextFactory.Create();
+        var service = new PurchaseRequestService(dbContext, new InMemoryAuditEventStore());
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            service.ApproveAsync(Guid.NewGuid(), "Katrine"));
+    }
+
+    [Fact]
+    public async Task ApproveAsync_Throws_WhenPerformedByIsMissing()
+    {
+        await using var dbContext = TestDbContextFactory.Create();
+        var service = new PurchaseRequestService(dbContext, new InMemoryAuditEventStore());
+        var purchaseRequest = await CreateRequestWithStatusAsync(service, PurchaseRequestStatus.Pending);
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.ApproveAsync(purchaseRequest.Id, ""));
+    }
+
+    private static async Task<PurchaseRequest> CreateRequestWithStatusAsync(
+        PurchaseRequestService service,
+        PurchaseRequestStatus status)
+    {
+        var purchaseRequest = await service.CreateAsync(new CreatePurchaseRequestRequest
+        {
+            CustomerId = SeedData.CustomerEmmaId,
+            AssetId = SeedData.BordeauxAssetId,
+            Quantity = 2,
+            RequestedPrice = 12300m,
+            RequestedBy = "Kris"
         });
 
-        await auditEventStore.AddAsync(new AuditEvent
+        return status switch
         {
-            EntityId = "entity-2",
-            EntityType = "PurchaseRequest",
-            Action = "Approved",
-            PerformedBy = "Kris",
-            TimestampUtc = new DateTime(2026, 6, 14, 9, 0, 0, DateTimeKind.Utc)
-        });
-
-        var auditEvents = await auditEventStore.GetAllAsync();
-
-        Assert.Collection(
-            auditEvents,
-            first => Assert.Equal("Approved", first.Action),
-            second => Assert.Equal("Created", second.Action));
+            PurchaseRequestStatus.Pending => purchaseRequest,
+            PurchaseRequestStatus.Approved => await service.ApproveAsync(purchaseRequest.Id, "Katrine"),
+            PurchaseRequestStatus.Rejected => await service.RejectAsync(purchaseRequest.Id, "Katrine"),
+            _ => await service.CompleteAsync(
+                (await service.ApproveAsync(purchaseRequest.Id, "Katrine")).Id,
+                "Katrine")
+        };
     }
 }
