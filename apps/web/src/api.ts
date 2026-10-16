@@ -89,46 +89,55 @@ export type CreatePurchaseRequest = {
     requestedBy: string;
 };
 
-async function getJson<T>(url: string): Promise<T> {
-    const response = await fetch(`${API_BASE_URL}${url}`);
+export class ApiError extends Error {
+    readonly status: number;
 
-    if (!response.ok) {
-        throw new Error(`Request failed: ${response.status}`);
+    constructor(message: string, status: number) {
+        super(message);
+        this.name = "ApiError";
+        this.status = status;
     }
-
-    return response.json();
 }
 
-async function postJson<TResponse, TBody>(url: string, body: TBody): Promise<TResponse> {
-    const response = await fetch(`${API_BASE_URL}${url}`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-    });
+async function readErrorMessage(response: Response, method: string, path: string): Promise<string> {
+    // The API returns business rule violations as { "error": "..." } with status 400.
+    try {
+        const body: unknown = await response.json();
 
-    if (!response.ok) {
-        throw new Error(`Request failed: ${response.status}`);
+        if (body && typeof body === "object" && "error" in body && typeof body.error === "string") {
+            return body.error;
+        }
+    } catch {
+        // Not a JSON body; fall back to a generic message.
     }
 
-    return response.json();
+    return `${method} ${path} failed with status ${response.status}`;
 }
 
-async function patchJson<TResponse, TBody>(path: string, body: TBody): Promise<TResponse> {
+async function requestJson<TResponse>(method: string, path: string, body?: unknown): Promise<TResponse> {
     const response = await fetch(`${API_BASE_URL}${path}`, {
-        method: "PATCH",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
+        method,
+        headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
     });
 
     if (!response.ok) {
-        throw new Error(`PATCH ${path} failed with status ${response.status}`);
+        throw new ApiError(await readErrorMessage(response, method, path), response.status);
     }
 
     return response.json() as Promise<TResponse>;
+}
+
+function getJson<T>(path: string): Promise<T> {
+    return requestJson<T>("GET", path);
+}
+
+function postJson<TResponse, TBody>(path: string, body: TBody): Promise<TResponse> {
+    return requestJson<TResponse>("POST", path, body);
+}
+
+function patchJson<TResponse, TBody>(path: string, body: TBody): Promise<TResponse> {
+    return requestJson<TResponse>("PATCH", path, body);
 }
 
 export const api = {
