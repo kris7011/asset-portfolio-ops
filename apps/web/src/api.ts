@@ -89,6 +89,84 @@ export type CreatePurchaseRequest = {
     requestedBy: string;
 };
 
+export type ValuationPoint = {
+    date: string;
+    price: number;
+};
+
+export type AssetValuationHistory = {
+    assetId: string;
+    assetName: string;
+    currency: string;
+    isDemonstrationData: boolean;
+    sources: string[];
+    points: ValuationPoint[];
+    firstPrice: number | null;
+    latestPrice: number | null;
+    changeAmount: number | null;
+    changePercent: number | null;
+    minPrice: number | null;
+    maxPrice: number | null;
+};
+
+export type PortfolioValuationHistory = {
+    customerId: string;
+    customerName: string;
+    currency: string;
+    isDemonstrationData: boolean;
+    basis: string;
+    points: { date: string; totalValue: number }[];
+};
+
+export type ConcentrationLevel = "None" | "Medium" | "High";
+
+export type PositionShare = {
+    assetId: string;
+    assetName: string;
+    quantity: number;
+    marketValue: number;
+    sharePercent: number;
+};
+
+export type ConcentrationSnapshot = {
+    totalMarketValue: number;
+    positions: PositionShare[];
+    largestAssetName: string | null;
+    largestSharePercent: number;
+    level: ConcentrationLevel;
+};
+
+export type PreviewWarning = {
+    code: string;
+    severity: "Low" | "Medium" | "High";
+    message: string;
+};
+
+export type PurchasePreview = {
+    isPreview: true;
+    notice: string;
+    customerId: string;
+    customerName: string;
+    asset: { assetId: string; assetName: string; marketPrice: number; currency: string };
+    quantity: number;
+    pricePerUnit: number;
+    priceSource: "Market" | "Requested";
+    estimatedCost: number;
+    inventory: { quantityAvailable: number; isSufficient: boolean };
+    pendingRequests: { count: number; exposure: number };
+    before: ConcentrationSnapshot;
+    after: ConcentrationSnapshot;
+    largestShareChangePercentagePoints: number;
+    warnings: PreviewWarning[];
+};
+
+export type PurchasePreviewQuery = {
+    customerId: string;
+    assetId: string;
+    quantity: number;
+    requestedPrice?: number;
+};
+
 export class ApiError extends Error {
     readonly status: number;
 
@@ -155,6 +233,23 @@ export const api = {
         getJson<PurchaseRequest[]>("/api/purchase-requests"),
 
     getAuditEvents: () => getJson<AuditEvent[]>("/api/audit-events"),
+
+    getAssetValuations: (assetId: string) =>
+        getJson<AssetValuationHistory>(`/api/assets/${assetId}/valuations`),
+
+    getPortfolioValuationHistory: (customerId: string) =>
+        getJson<PortfolioValuationHistory>(`/api/customers/${customerId}/portfolio/valuation-history`),
+
+    // A read-only GET: the API never stores anything for a preview.
+    getPurchasePreview: ({ customerId, assetId, quantity, requestedPrice }: PurchasePreviewQuery) => {
+        const query = new URLSearchParams({ assetId, quantity: String(quantity) });
+
+        if (requestedPrice !== undefined) {
+            query.set("requestedPrice", String(requestedPrice));
+        }
+
+        return getJson<PurchasePreview>(`/api/customers/${customerId}/purchase-preview?${query}`);
+    },
 
     createPurchaseRequest: (request: CreatePurchaseRequest) =>
         postJson<PurchaseRequest, CreatePurchaseRequest>("/api/purchase-requests", request),

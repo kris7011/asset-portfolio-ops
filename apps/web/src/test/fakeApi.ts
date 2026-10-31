@@ -1,9 +1,11 @@
 import { vi } from "vitest";
 import type {
   Asset,
+  AssetValuationHistory,
   AuditEvent,
   InventoryItem,
   Portfolio,
+  PortfolioValuationHistory,
   PurchaseRequest,
   PurchaseRequestStatus,
   RiskIndicator,
@@ -76,6 +78,38 @@ export function purchaseRequest(id: string, status: PurchaseRequestStatus): Purc
   };
 }
 
+export const bordeauxValuations: AssetValuationHistory = {
+  assetId: bordeauxId,
+  assetName: "Bordeaux Premier Cru 2016",
+  currency: "DKK",
+  isDemonstrationData: true,
+  sources: ["Demonstration data (synthetic series, not market prices)"],
+  points: [
+    { date: "2026-07-31", price: 12000 },
+    { date: "2026-08-31", price: 12250 },
+    { date: "2026-09-30", price: 12500 },
+  ],
+  firstPrice: 12000,
+  latestPrice: 12500,
+  changeAmount: 500,
+  changePercent: 4.17,
+  minPrice: 12000,
+  maxPrice: 12500,
+};
+
+export const portfolioValuations: PortfolioValuationHistory = {
+  customerId,
+  customerName: "Emma Jensen",
+  currency: "DKK",
+  isDemonstrationData: true,
+  basis: "Current holdings valued at each historical price.",
+  points: [
+    { date: "2026-07-31", totalValue: 72000 },
+    { date: "2026-08-31", totalValue: 73500 },
+    { date: "2026-09-30", totalValue: 75000 },
+  ],
+};
+
 type Route = (method: string, path: string, body: unknown) => Response | Promise<Response> | undefined;
 
 export function jsonResponse(body: unknown, status = 200): Response {
@@ -121,6 +155,10 @@ export function stubApi(options: { purchaseRequests?: PurchaseRequest[]; routes?
           return jsonResponse(state.purchaseRequests);
         case "/api/audit-events":
           return jsonResponse(state.auditEvents);
+        case `/api/customers/${customerId}/portfolio/valuation-history`:
+          return jsonResponse(portfolioValuations);
+        case `/api/assets/${bordeauxId}/valuations`:
+          return jsonResponse(bordeauxValuations);
       }
     }
 

@@ -1,5 +1,6 @@
 using AssetPortfolioOps.Api.Data;
 using AssetPortfolioOps.Api.Domain;
+using AssetPortfolioOps.Api.Features.Portfolios;
 using Microsoft.EntityFrameworkCore;
 
 namespace AssetPortfolioOps.Api.Features.RiskIndicators;
@@ -49,36 +50,26 @@ public sealed class RiskIndicatorService(AppDbContext dbContext) : IRiskIndicato
                 asset => asset.Id,
                 (holding, asset) => new
                 {
-                    AssetName = asset.Name,
-                    MarketValue = holding.Quantity * asset.MarketPrice
+                    asset.Id,
+                    asset.Name,
+                    holding.Quantity,
+                    asset.MarketPrice
                 })
             .ToListAsync(cancellationToken);
 
-        var totalMarketValue = holdings.Sum(holding => holding.MarketValue);
+        var concentration = PortfolioConcentration.Calculate(holdings.Select(holding =>
+            new PositionValue(holding.Id, holding.Name, holding.Quantity, holding.Quantity * holding.MarketPrice)));
 
-        if (totalMarketValue <= 0)
+        if (concentration.LargestPosition is null || concentration.Level == "None")
         {
             return;
         }
-
-        var largestHolding = holdings
-            .OrderByDescending(holding => holding.MarketValue)
-            .First();
-
-        var concentrationPercentage = largestHolding.MarketValue / totalMarketValue * 100;
-
-        if (concentrationPercentage < 60)
-        {
-            return;
-        }
-
-        var severity = concentrationPercentage >= 70 ? "High" : "Medium";
 
         indicators.Add(new RiskIndicatorResponse(
             "HighConcentration",
-            severity,
+            concentration.Level,
             "High portfolio concentration",
-            $"{largestHolding.AssetName} represents {Math.Round(concentrationPercentage, 1)}% of the total portfolio value."));
+            $"{concentration.LargestPosition.AssetName} represents {Math.Round(concentration.LargestSharePercent, 1)}% of the total portfolio value."));
     }
 
     private async Task AddLowInventoryWarningsAsync(

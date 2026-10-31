@@ -18,6 +18,7 @@ internal static class TestDbContextFactory
         dbContext.Assets.AddRange(CloneAssets());
         dbContext.Holdings.AddRange(CloneHoldings());
         dbContext.InventoryItems.AddRange(CloneInventoryItems());
+        dbContext.AssetValuations.AddRange(CloneValuations());
         dbContext.SaveChanges();
 
         return dbContext;
@@ -68,6 +69,19 @@ internal static class TestDbContextFactory
             QuantityAvailable = item.QuantityAvailable,
             WarehouseLocation = item.WarehouseLocation,
             LastUpdatedUtc = item.LastUpdatedUtc
+        });
+    }
+
+    private static IEnumerable<AssetValuation> CloneValuations()
+    {
+        return ValuationSeedData.Valuations.Select(valuation => new AssetValuation
+        {
+            Id = valuation.Id,
+            AssetId = valuation.AssetId,
+            ValuationDate = valuation.ValuationDate,
+            Price = valuation.Price,
+            Source = valuation.Source,
+            IsDemonstrationData = valuation.IsDemonstrationData
         });
     }
 }

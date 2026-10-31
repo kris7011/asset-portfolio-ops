@@ -3,8 +3,10 @@ using AssetPortfolioOps.Api.Features.Assets;
 using AssetPortfolioOps.Api.Features.AuditEvents;
 using AssetPortfolioOps.Api.Features.Inventory;
 using AssetPortfolioOps.Api.Features.Portfolios;
+using AssetPortfolioOps.Api.Features.PurchasePreviews;
 using AssetPortfolioOps.Api.Features.PurchaseRequests;
 using AssetPortfolioOps.Api.Features.RiskIndicators;
+using AssetPortfolioOps.Api.Features.Valuations;
 using Microsoft.Azure.Cosmos;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -44,6 +46,8 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IPortfolioService, PortfolioService>();
 builder.Services.AddScoped<IPurchaseRequestService, PurchaseRequestService>();
 builder.Services.AddScoped<IRiskIndicatorService, RiskIndicatorService>();
+builder.Services.AddScoped<IValuationService, ValuationService>();
+builder.Services.AddScoped<IPurchasePreviewService, PurchasePreviewService>();
 
 var cosmosDbEnabled = builder.Configuration.GetValue<bool>("CosmosDb:Enabled");
 
@@ -86,7 +90,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbContext.Database.EnsureCreated();
+    DatabaseInitializer.Initialize(dbContext);
 }
 
 if (app.Environment.IsDevelopment())
@@ -133,6 +137,68 @@ api.MapGet("/customers/{customerId:guid}/portfolio", (
     return portfolio is null
         ? Results.NotFound()
         : Results.Ok(portfolio);
+});
+
+api.MapGet("/assets/{id:guid}/valuations", async (
+    Guid id,
+    DateOnly? from,
+    DateOnly? to,
+    IValuationService valuationService,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var history = await valuationService.GetAssetHistoryAsync(id, from, to, cancellationToken);
+
+        return history is null
+            ? Results.NotFound()
+            : Results.Ok(history);
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.BadRequest(new { error = exception.Message });
+    }
+});
+
+api.MapGet("/customers/{customerId:guid}/portfolio/valuation-history", async (
+    Guid customerId,
+    IValuationService valuationService,
+    CancellationToken cancellationToken) =>
+{
+    var history = await valuationService.GetPortfolioHistoryAsync(customerId, cancellationToken);
+
+    return history is null
+        ? Results.NotFound()
+        : Results.Ok(history);
+});
+
+// A safe, read-only GET: the preview never creates a purchase request,
+// changes holdings or inventory, or writes an audit event.
+api.MapGet("/customers/{customerId:guid}/purchase-preview", async (
+    Guid customerId,
+    Guid assetId,
+    int quantity,
+    decimal? requestedPrice,
+    IPurchasePreviewService purchasePreviewService,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var preview = await purchasePreviewService.PreviewAsync(
+            customerId,
+            assetId,
+            quantity,
+            requestedPrice,
+            cancellationToken);
+
+        return preview is null
+            ? Results.NotFound(new { error = "Customer or asset was not found." })
+            : Results.Ok(preview);
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.BadRequest(new { error = exception.Message });
+    }
 });
 
 api.MapGet("/customers/{customerId:guid}/risk-indicators", async (

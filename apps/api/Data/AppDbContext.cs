@@ -10,6 +10,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Holding> Holdings => Set<Holding>();
     public DbSet<InventoryItem> InventoryItems => Set<InventoryItem>();
     public DbSet<PurchaseRequest> PurchaseRequests => Set<PurchaseRequest>();
+    public DbSet<AssetValuation> AssetValuations => Set<AssetValuation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,5 +30,21 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         modelBuilder.Entity<PurchaseRequest>()
             .Property(request => request.RequestedPrice)
             .HasPrecision(18, 2);
+
+        modelBuilder.Entity<AssetValuation>(valuation =>
+        {
+            valuation.Property(item => item.Price).HasPrecision(18, 2);
+            valuation.Property(item => item.Source).HasMaxLength(200);
+
+            // One price per asset and day.
+            valuation.HasIndex(item => new { item.AssetId, item.ValuationDate }).IsUnique();
+
+            valuation.HasOne<Asset>()
+                .WithMany()
+                .HasForeignKey(item => item.AssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            valuation.HasData(ValuationSeedData.Valuations);
+        });
     }
 }

@@ -11,6 +11,9 @@ import {
   type RiskIndicator,
   type AuditEvent,
 } from "./api";
+import { formatMoney } from "./format";
+import { PurchasePreview } from "./PurchasePreview";
+import { ValuationHistory } from "./ValuationHistory";
 
 const demoCustomerId = "11111111-1111-1111-1111-111111111111";
 const demoAssetId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -233,6 +236,19 @@ function App() {
               </div>
             </section>
 
+            <ValuationHistory
+              assets={assets}
+              customerId={demoCustomerId}
+              customerName={portfolio?.customerName ?? "Customer"}
+            />
+
+            <PurchasePreview
+              assets={assets}
+              customerId={demoCustomerId}
+              performedBy="Kris"
+              onRequestCreated={refreshDashboard}
+            />
+
             <section className="card">
               <div className="sectionHeader">
                 <h2>Inventory</h2>
@@ -379,14 +395,6 @@ function MetricCard({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </section>
   );
-}
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat("da-DK", {
-    style: "currency",
-    currency: "DKK",
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 function getPurchaseRequestStatusLabel(status: PurchaseRequestStatus) {

@@ -301,3 +301,227 @@ h2 {
   background: #fef2f2;
   color: #b91c1c;
 }
+/* Valuation history and purchase preview */
+
+.wideCard {
+  grid-column: 1 / -1;
+}
+
+.fieldLabel {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.fieldLabel select,
+.fieldLabel input {
+  min-width: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: white;
+  color: #172033;
+  font: inherit;
+  font-weight: 400;
+}
+
+.demoBadge {
+  display: inline-block;
+  margin: 0 0 12px;
+  border: 1px dashed #9a6700;
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: #fffbeb;
+  color: #7c4a03;
+  font-size: 0.85rem;
+}
+
+.summaryRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.summaryRow dt {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.summaryRow dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.chartWrap {
+  position: relative;
+}
+
+.lineChart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.lineChart .gridline {
+  stroke: #e5e7eb;
+  stroke-width: 1;
+}
+
+.lineChart .axisLabel {
+  fill: #64748b;
+  font-size: 11px;
+}
+
+.lineChart .seriesLine {
+  fill: none;
+  stroke: #2a78d6;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.lineChart .crosshair {
+  stroke: #172033;
+  stroke-dasharray: 4 3;
+}
+
+.lineChart .seriesMarker {
+  fill: #2a78d6;
+  stroke: white;
+  stroke-width: 2;
+}
+
+.lineChart .hitArea {
+  fill: transparent;
+}
+
+.chartReadout,
+.chartNote {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.inlineError {
+  color: #b91c1c;
+}
+
+.successNote {
+  color: #047857;
+  font-weight: 600;
+}
+
+.previewForm {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.secondaryButton {
+  border: 1px solid #172033;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: white;
+  color: #172033;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondaryButton:disabled,
+.primaryButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.darkButton {
+  background: #172033;
+  color: white;
+}
+
+.previewNotice {
+  border-left: 4px solid #2a78d6;
+  border-radius: 0 8px 8px 0;
+  padding: 8px 12px;
+  background: #eff6ff;
+}
+
+.allocationRow {
+  margin-bottom: 12px;
+}
+
+.allocationHeader {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.allocationBar {
+  display: flex;
+  gap: 2px;
+  overflow: hidden;
+  border-radius: 6px;
+  height: 30px;
+  background: white;
+}
+
+.allocationSegment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2px;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  color: #475569;
+  font-size: 0.85rem;
+}
+
+.legend i {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  border-radius: 3px;
+  vertical-align: -1px;
+}
+
+.warningList {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.warningList li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  line-height: 1.45;
+}
+
+.previewActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}

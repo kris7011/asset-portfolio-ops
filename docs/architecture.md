@@ -20,6 +20,7 @@ The core domain concepts are:
 * Portfolio
 * PurchaseRequest
 * InventoryItem
+* AssetValuation (dated unit price; seeded with labelled demonstration data)
 * AuditEvent
 
 ## Backend
@@ -32,10 +33,17 @@ The API exposes endpoints for:
 * Viewing a customer's portfolio
 * Viewing inventory data
 * Creating purchase requests
+* Reading asset and portfolio valuation history
+* Previewing a purchase's effect on concentration (read-only)
 * Reading audit events
 * Checking application health
 
 The backend uses a simple service-based structure where each feature has its own service interface and implementation. This keeps the business logic separate from the API endpoint definitions.
+
+Two rules keep the newer features honest:
+
+* **One concentration rule.** `PortfolioConcentration.Calculate` (pure, no database) is the only place that computes position shares and the Medium (60 %) / High (70 %) levels. `RiskIndicatorService` and `PurchasePreviewService` both call it.
+* **Previews never write.** `PurchasePreviewService` reads with `AsNoTracking`, never calls `SaveChanges` and never touches the audit store, and the endpoint is a `GET`. Creating a purchase request stays a separate `POST` through `PurchaseRequestService`, which validates and audits as before.
 
 ## SQL persistence
 
@@ -50,7 +58,7 @@ Examples:
 
 This makes SQL a good fit for data integrity, relationships and querying structured business data.
 
-In local development, the project uses SQLite through Entity Framework Core. The same persistence approach can later be moved to Azure SQL by changing the database provider and connection string.
+In local development, the project uses SQLite through Entity Framework Core, with EF Core migrations applied at startup (`DatabaseInitializer`, which also upgrades databases created by the earlier `EnsureCreated` bootstrap). The same persistence approach can later be moved to Azure SQL by changing the database provider and connection string.
 
 ## Cosmos DB event store
 
